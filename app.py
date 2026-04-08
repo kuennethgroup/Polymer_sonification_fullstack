@@ -68,6 +68,24 @@ SAMPLE_RATE    = 22_050       # Hz — used for mock audio generation
 MOCK_DURATION  = 3.0          # seconds
 EXAMPLE_PSMILES = "[*]CC[*]"  # polyethylene repeat unit
 
+# ── Atom → (note_name, frequency_hz, display_color) ──────────────────────────
+# Each atom in the polymer repeat unit is mapped to a unique musical note.
+# Frequencies are standard equal-temperament pitches.
+ATOM_NOTE_MAP: dict[str, tuple[str, float, str]] = {
+    "C":  ("C4",  261.63, "#7ee787"),   # carbon   → middle C
+    "H":  ("E4",  329.63, "#79c0ff"),   # hydrogen → E4
+    "O":  ("G4",  392.00, "#ff7b72"),   # oxygen   → G4
+    "N":  ("A4",  440.00, "#d2a8ff"),   # nitrogen → concert A
+    "S":  ("B4",  493.88, "#ffa657"),   # sulfur   → B4
+    "P":  ("D5",  587.33, "#f78166"),   # phosphorus → D5
+    "F":  ("F5",  698.46, "#a5d6ff"),   # fluorine → F5
+    "Cl": ("G5",  783.99, "#56d364"),   # chlorine → G5
+    "Br": ("A3",  220.00, "#e3b341"),   # bromine  → A3 (heavy → lower)
+    "I":  ("F3",  174.61, "#ff9492"),   # iodine   → F3 (heaviest → lowest)
+    "Si": ("E5",  659.25, "#b1bac4"),   # silicon  → E5
+}
+DEFAULT_NOTE: tuple[str, float, str] = ("A3", 220.00, "#6e7681")  # unknown atoms
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Custom CSS
@@ -108,6 +126,22 @@ st.markdown(
         border: 1px solid #1f6feb; border-radius: 12px;
         padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
     }
+
+    /* ---- atom chips ---- */
+    .atom-chip {
+        display: inline-block; border-radius: 6px;
+        padding: 4px 10px; margin: 3px 2px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.78rem; font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+    .atom-sequence { line-height: 2.2; }
+
+    /* ---- note legend ---- */
+    .legend-row { display:flex; align-items:center; gap:8px; margin:4px 0; }
+    .legend-swatch {
+        width:14px; height:14px; border-radius:3px; flex-shrink:0;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -124,6 +158,8 @@ def _init_state() -> None:
         # audio output
         "audio_bytes": None,
         "predicted": False,
+        # atom sequence extracted during sonification
+        "atom_sequence": [],
         # real-time validation state (updated as user types / draws)
         "rt_mol": None,           # rdkit Mol object for display
         "rt_psmiles_str": "",     # canonical PSMILES string
@@ -143,6 +179,7 @@ def _reset() -> None:
     st.session_state.psmiles            = ""
     st.session_state.audio_bytes        = None
     st.session_state.predicted          = False
+    st.session_state.atom_sequence      = []
     st.session_state.rt_mol             = None
     st.session_state.rt_psmiles_str     = ""
     st.session_state.rt_last_input      = ""
@@ -235,6 +272,99 @@ def mol_to_svg(mol, width: int = 300, height: int = 300) -> Optional[str]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Atom-based sonification
+# ──────────────────────────────────────────────────────────────────────────────
+
+def extract_atoms(psmiles: str) -> list[str]:
+    """
+    Return the ordered list of heavy-atom symbols in the PSMILES repeat unit,
+    excluding attachment-point placeholders (*).
+
+    Uses RDKit when available; falls back to a simple regex otherwise.
+    """
+    if RDKIT_AVAILABLE:
+        smiles = psmiles.replace("[*]", "[Xe]").replace("*", "[Xe]")
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return []
+        return [a.GetSymbol() for a in mol.GetAtoms() if a.GetSymbol() != "Xe"]
+
+    # Regex fallback: match bracketed symbols first, then bare ones
+    import re
+    tokens = re.findall(r"\[([A-Z][a-z]?)\]|([A-Z][a-z]?)", psmiles)
+    result = []
+    for bracketed, plain in tokens:
+        sym = bracketed or plain
+        if sym and sym != "*":
+            result.append(sym)
+    return result
+
+
+def _note_samples(freq: float, duration: float = 0.22) -> np.ndarray:
+    """
+    Generate a single note as a float32 numpy array (values in [-1, 1]).
+    freq == 0 produces silence (a rest).
+    """
+    n = int(SAMPLE_RATE * duration)
+    if freq == 0:
+        return np.zeros(n, dtype=np.float32)
+
+    t = np.linspace(0, duration, n, endpoint=False)
+    # Blend fundamental + 2nd + 3rd harmonic for a bell-like timbre
+    sig = (
+        0.60 * np.sin(2 * math.pi * freq * t)
+        + 0.25 * np.sin(2 * math.pi * freq * 2 * t)
+        + 0.15 * np.sin(2 * math.pi * freq * 3 * t)
+    ).astype(np.float32)
+
+    # Short cosine fade-in / fade-out to avoid clicks
+    fade = min(int(0.015 * SAMPLE_RATE), n // 4)
+    window = np.hanning(fade * 2)
+    sig[:fade]  *= window[:fade]
+    sig[-fade:] *= window[fade:]
+    return sig
+
+
+def sonify_from_atoms(psmiles: str, note_duration: float = 0.22) -> tuple[bytes, list[str]]:
+    """
+    Build audio by mapping every atom in the PSMILES repeat unit to its
+    assigned musical note and concatenating the results.
+
+    Returns (wav_bytes, atom_list).
+    Falls back to a random-tone WAV if no atoms can be parsed.
+    """
+    atoms = extract_atoms(psmiles)
+
+    if not atoms:
+        # Fallback: single tone seeded from the PSMILES string
+        rng = np.random.default_rng(abs(hash(psmiles)) % (2 ** 32))
+        freq = 220.0 + rng.random() * 440.0
+        signal = _note_samples(freq, MOCK_DURATION)
+    else:
+        gap = np.zeros(int(SAMPLE_RATE * 0.03), dtype=np.float32)  # 30 ms silence between notes
+        parts: list[np.ndarray] = []
+        for atom in atoms:
+            _, freq, _ = ATOM_NOTE_MAP.get(atom, DEFAULT_NOTE)
+            parts.append(_note_samples(freq, note_duration))
+            parts.append(gap)
+        signal = np.concatenate(parts).astype(np.float32)
+
+    # Normalise
+    peak = np.max(np.abs(signal))
+    if peak > 0:
+        signal /= peak
+
+    pcm = (signal * 32_767).astype(np.int16)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(pcm.tobytes())
+    return buf.getvalue(), atoms
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Feature extraction / preprocessing
 # ──────────────────────────────────────────────────────────────────────────────
 def preprocess(psmiles: str) -> np.ndarray:
@@ -254,60 +384,28 @@ def preprocess(psmiles: str) -> np.ndarray:
     return rng.random(128).astype(np.float32)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Mock audio generation (stdlib only — no extra dependencies)
-# ──────────────────────────────────────────────────────────────────────────────
-def generate_mock_audio(psmiles: str) -> bytes:
-    """
-    Produce a deterministic multi-tone WAV waveform seeded from the PSMILES
-    string.  Each unique polymer yields a distinct pitch combination.
-    Returns raw WAV bytes.
-    """
-    rng = np.random.default_rng(abs(hash(psmiles)) % (2 ** 32))
-    n_samples = int(SAMPLE_RATE * MOCK_DURATION)
-    t = np.linspace(0, MOCK_DURATION, n_samples, endpoint=False)
-
-    base_freq = 220.0 + rng.random() * 440.0
-    signal = (
-        0.60 * np.sin(2 * math.pi * base_freq * t)
-        + 0.25 * np.sin(2 * math.pi * base_freq * 2 * t)
-        + 0.10 * np.sin(2 * math.pi * base_freq * 3 * t)
-        + 0.05 * np.sin(2 * math.pi * base_freq * 5 * t)
-    )
-
-    attack  = int(0.05 * SAMPLE_RATE)
-    release = int(0.30 * SAMPLE_RATE)
-    env = np.ones(n_samples)
-    env[:attack]   = np.linspace(0, 1, attack)
-    env[-release:] = np.linspace(1, 0, release)
-    signal *= env
-
-    signal = (signal / np.max(np.abs(signal)) * 32_767).astype(np.int16)
-
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(signal.tobytes())
-    return buf.getvalue()
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Inference
 # ──────────────────────────────────────────────────────────────────────────────
-def run_inference(model, features: np.ndarray, psmiles: str) -> bytes:
+def run_inference(model, features: np.ndarray, psmiles: str) -> tuple[bytes, list[str]]:
     """
-    Run the ML model and return audio bytes.
+    Sonify the polymer and return (wav_bytes, atom_list).
 
-    TODO: Replace the stub call with the real model's API once trained.
+    When no trained model is present the app uses atom-based sonification
+    directly: each atom in the repeat unit is mapped to a musical note and
+    the notes are concatenated.
+
+    TODO: When the real model is available, replace the mock branch with the
+          actual model call and derive atom_list from the PSMILES separately.
     """
     if model == "mock":
-        return generate_mock_audio(psmiles)
+        return sonify_from_atoms(psmiles)
 
     # TODO: adapt to real model call signature
     audio_bytes: bytes = model.predict(features)  # type: ignore[union-attr]
-    return audio_bytes
+    atom_list = extract_atoms(psmiles)
+    return audio_bytes, atom_list
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -554,11 +652,12 @@ def main() -> None:
     # ── Prediction ───────────────────────────────────────────────────────────
     if predict_clicked and st.session_state.psmiles:
         psmiles = st.session_state.psmiles
-        with st.spinner("Running inference…"):
-            features    = preprocess(psmiles)
-            audio_bytes = run_inference(model, features, psmiles)
-        st.session_state.audio_bytes = audio_bytes
-        st.session_state.predicted   = True
+        with st.spinner("Sonifying polymer…"):
+            features               = preprocess(psmiles)
+            audio_bytes, atom_list = run_inference(model, features, psmiles)
+        st.session_state.audio_bytes   = audio_bytes
+        st.session_state.atom_sequence = atom_list
+        st.session_state.predicted     = True
 
     # ── Results ──────────────────────────────────────────────────────────────
     if st.session_state.predicted and st.session_state.audio_bytes is not None:
@@ -568,6 +667,27 @@ def main() -> None:
         st.markdown('<p class="section-label">Step 3 — Prediction Result</p>', unsafe_allow_html=True)
         st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
+        # ── Atom sequence ────────────────────────────────────────────────────
+        atoms = st.session_state.atom_sequence
+        if atoms:
+            st.markdown("**Atom sequence → notes**")
+            chips_html = '<div class="atom-sequence">'
+            for atom in atoms:
+                note_name, _, color = ATOM_NOTE_MAP.get(atom, DEFAULT_NOTE)
+                chips_html += (
+                    f'<span class="atom-chip" '
+                    f'style="background:{color}22;color:{color};border-color:{color}55;" '
+                    f'title="{note_name}">'
+                    f'{atom} <span style="font-size:0.68rem;opacity:0.8">{note_name}</span>'
+                    f'</span>'
+                )
+            chips_html += "</div>"
+            st.markdown(chips_html, unsafe_allow_html=True)
+            st.caption(f"{len(atoms)} atoms → {len(atoms)} notes concatenated")
+
+        st.markdown("---")
+
+        # ── Waveform ─────────────────────────────────────────────────────────
         with st.spinner("Rendering waveform…"):
             fig = plot_waveform(audio_bytes)
         st.pyplot(fig, use_container_width=True)
@@ -588,6 +708,20 @@ def main() -> None:
             )
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Atom → note legend ───────────────────────────────────────────────
+        with st.expander("Atom → note legend", expanded=False):
+            cols = st.columns(4)
+            for i, (sym, (note, freq, color)) in enumerate(ATOM_NOTE_MAP.items()):
+                with cols[i % 4]:
+                    st.markdown(
+                        f'<div class="legend-row">'
+                        f'<div class="legend-swatch" style="background:{color}"></div>'
+                        f'<span style="color:{color};font-weight:700">{sym}</span>'
+                        f'<span style="color:#8b95a5;font-size:0.8rem">{note} ({freq:.1f} Hz)</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
         with st.expander("Debug / details", expanded=False):
             c1, c2 = st.columns(2)
