@@ -1,0 +1,20 @@
+# Core
+streamlit>=1.35.0
+
+# Numerics / plotting
+numpy>=1.24.0
+matplotlib>=3.7.0
+
+# Ketcher molecular drawing component
+streamlit-ketcher>=0.0.1
+
+# Chemistry — structure validation & rendering
+rdkit>=2023.3.1
+
+# Polymer SMILES processing — not on PyPI, install manually if available:
+# pip install git+https://github.com/Ramprasad-Group/psmiles.git
+
+# Audio — MP3 decoding for waveform display (requires ffmpeg system package)
+# Ubuntu/Debian: sudo apt install ffmpeg
+# macOS:         brew install ffmpeg
+pydub>=0.25.1
