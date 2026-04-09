@@ -664,6 +664,47 @@ def render_about_panel() -> None:
     )
 
 
+def render_reverse_panel() -> None:
+    st.components.v1.html(
+        _PANEL_STYLE + """
+        <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
+                     min-height:600px; display:flex; align-items:center; padding:60px 48px;">
+          <div style="display:flex; gap:60px; align-items:center; width:100%;">
+
+            <!-- Left: text -->
+            <div style="flex:1; min-width:0;">
+              <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
+              <h2>Turning music<br>into chemistry</h2>
+              <p class="body">
+                The inverse challenge: can a melody describe a polymer?
+                Given an audio fingerprint, we aim to reconstruct the molecular
+                structure that would have produced it.
+              </p>
+              <p class="body">
+                By reversing the sonification pipeline we open a new design space —
+                composing a sound and letting the model propose a polymer that matches it.
+              </p>
+              <p class="body">
+                This feature is under development. Stay tuned.
+              </p>
+            </div>
+
+            <!-- Right: image placeholder -->
+            <div style="flex:1; min-width:0; height:380px;">
+              <div class="img-box" style="height:100%;border-color:#d2a8ff44;">
+                <div class="icon">🎵</div>
+                <div class="label">Add assets/reverse.png</div>
+              </div>
+            </div>
+
+          </div>
+        </body>
+        """,
+        height=620,
+        scrolling=False,
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Section 4 — Lab: Streamlit input widgets
 # ──────────────────────────────────────────────────────────────────────────────
@@ -794,6 +835,7 @@ def main() -> None:
 
     # ── 3. About ──────────────────────────────────────────────────────────────
     render_about_panel()
+    render_reverse_panel()
 
     # ── CTA button (bottom of about → jumps to lab) ───────────────────────────
     st.markdown(
