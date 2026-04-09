@@ -833,35 +833,51 @@ def main() -> None:
     # ── 2. Team ───────────────────────────────────────────────────────────────
     render_team_panel()
 
-    # ── 3. About ──────────────────────────────────────────────────────────────
+    # ── 3. About + CTA ────────────────────────────────────────────────────────
     render_about_panel()
-    render_reverse_panel()
-
-    # ── CTA button (bottom of about → jumps to lab) ───────────────────────────
+    # "Start Sonifying" sits at the bottom of the chemistry→music panel
     st.markdown(
-        '<div style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);"'
-        ' id="cta-row">',
+        '<div style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);'
+        'padding:0 48px 40px;">',
         unsafe_allow_html=True,
     )
-    _, col_btn, _ = st.columns([2, 3, 2])
-    with col_btn:
-        go_clicked = st.button(
-            "Start Sonifying  →",
+    _, col_sonify, _ = st.columns([2, 3, 2])
+    with col_sonify:
+        go_sonify = st.button(
+            "🎵  Start Sonifying  →",
             type="primary",
             use_container_width=True,
-            key="cta_go",
+            key="cta_sonify",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── 4. Reverse panel + CTA ────────────────────────────────────────────────
+    render_reverse_panel()
+    # Placeholder button for the future "music → chemistry" feature
+    st.markdown(
+        '<div style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);'
+        'padding:0 48px 40px;">',
+        unsafe_allow_html=True,
+    )
+    _, col_reverse, _ = st.columns([2, 3, 2])
+    with col_reverse:
+        go_reverse = st.button(
+            "🔬  Start Reverse Design  →",
+            use_container_width=True,
+            key="cta_reverse",
+            disabled=True,   # TODO: enable when reverse pipeline is implemented
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div style="height:60px;background:#0d1117"></div>', unsafe_allow_html=True)
 
-    # ── 4. Lab ────────────────────────────────────────────────────────────────
+    # ── 5. Lab ────────────────────────────────────────────────────────────────
     with st.container():
         st.markdown('<div id="section-lab"></div>', unsafe_allow_html=True)
         predict_clicked = render_lab_section(model, is_mock)
 
-    # scroll to lab when CTA is clicked
-    if go_clicked:
+    # Scroll to lab when sonify CTA is clicked
+    if go_sonify:
         st.components.v1.html(
             "<script>window.parent.document.getElementById('section-lab')"
             ".scrollIntoView({behavior:'smooth',block:'start'});</script>",
