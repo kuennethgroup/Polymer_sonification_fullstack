@@ -1,0 +1,19 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Model files (large binaries — store in DVC or similar)
+model/*.pkl
+model/*.joblib
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
