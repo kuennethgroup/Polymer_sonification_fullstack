@@ -70,98 +70,24 @@ EXAMPLE_PSMILES = "[*]CC[*]"  # polyethylene repeat unit
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Custom CSS — story scroll layout
+# Custom CSS — only for the lab / results Streamlit sections
+# (story sections carry their own inline styles inside st.components.v1.html)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
-    /* ── global ── */
     html, body, .stApp { background: #0a0d14; color: #c9d1d9; }
+    .block-container { padding-top: 0 !important; }
 
-    /* hide default Streamlit top padding so sections butt up cleanly */
-    .block-container { padding-top: 0 !important; max-width: 100% !important; }
-
-    /* ── story section panels ── */
-    .story-section {
-        min-height: 100vh;
-        display: flex; flex-direction: column; justify-content: center;
-        padding: 5vh 8vw;
-        scroll-margin-top: 0;
-        position: relative;
-    }
-    .section-story  { background: linear-gradient(160deg, #0a0d14 0%, #0d1b2a 60%, #0a1628 100%); }
-    .section-lab    { background: #0d1117; border-top: 1px solid #1f2733; }
-    .section-result { background: linear-gradient(180deg, #0d1117 0%, #050d18 100%);
-                      border-top: 1px solid #1f6feb33; }
-
-    /* ── story section: hero image placeholder ── */
-    .hero-image-wrap {
-        width: 100%; max-width: 820px;
-        aspect-ratio: 16/7;
-        border-radius: 16px; overflow: hidden;
-        border: 1px solid #1f6feb44;
-        background: linear-gradient(135deg, #0d2a5c 0%, #0a1628 50%, #1a0d2e 100%);
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 2.5rem auto;
-        position: relative;
-    }
-    .hero-image-wrap img {
-        width: 100%; height: 100%; object-fit: cover; border-radius: 16px;
-    }
-    .hero-image-placeholder {
-        color: #30363d; font-size: 1rem; letter-spacing: 2px; text-transform: uppercase;
-    }
-
-    /* ── story text ── */
-    .story-eyebrow {
-        font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; color: #00c0f0;
-        text-transform: uppercase; margin-bottom: 1rem;
-    }
-    .story-headline {
-        font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 800; line-height: 1.15;
-        color: #e6edf3; margin-bottom: 1.2rem; letter-spacing: -0.5px;
-    }
-    .story-body {
-        font-size: 1.05rem; line-height: 1.85; color: #8b95a5;
-        max-width: 640px;
-    }
-    .story-body p { margin-bottom: 1rem; }
-
-    /* ── scroll-down cue ── */
-    .scroll-cue {
-        display: inline-flex; align-items: center; gap: 8px;
-        color: #00c0f0; font-size: 0.85rem; font-weight: 600;
-        text-decoration: none; margin-top: 2rem;
-        padding: 10px 22px; border: 1px solid #00c0f044;
-        border-radius: 30px; transition: background 0.2s;
-    }
-    .scroll-cue:hover { background: #00c0f011; }
-
-    /* ── lab section header ── */
-    .lab-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 3px;
-                   color: #00c0f0; text-transform: uppercase; margin-bottom: 0.5rem; }
-    .lab-headline { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800;
-                    color: #e6edf3; margin-bottom: 0.4rem; }
-    .lab-sub { font-size: 0.95rem; color: #8b95a5; margin-bottom: 1.8rem; }
-
-    /* ── result section header ── */
-    .result-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 3px;
-                      color: #7ee787; text-transform: uppercase; margin-bottom: 0.5rem; }
-    .result-headline { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800;
-                       color: #e6edf3; margin-bottom: 0.4rem; }
-    .result-sub { font-size: 0.95rem; color: #8b95a5; margin-bottom: 1.8rem; }
-
-    /* ── misc reused components ── */
-    .divider  { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
+    .divider { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
     .section-label {
         font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px;
         color: #4a6fa5; text-transform: uppercase; margin-bottom: 6px;
     }
     .psmiles-box {
-        background: #161b22; border: 1px solid #30363d;
-        border-radius: 8px; padding: 10px 14px;
-        font-family: 'Courier New', monospace; font-size: 0.95rem;
-        color: #7ee787; word-break: break-all;
+        background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+        padding: 10px 14px; font-family: 'Courier New', monospace;
+        font-size: 0.95rem; color: #7ee787; word-break: break-all;
     }
     .result-card {
         background: #161b22; border: 1px solid #1f6feb;
@@ -547,138 +473,231 @@ def render_input_section() -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# JS helper — smooth-scroll the Streamlit viewport to a named element
+# Shared HTML style block (injected into every st.components.v1.html panel)
 # ──────────────────────────────────────────────────────────────────────────────
-def _scroll_to(element_id: str) -> None:
-    """
-    Inject a tiny invisible iframe whose JS scrolls the parent Streamlit
-    viewport to the element with the given id.  Height=0 keeps it invisible.
-    """
+_PANEL_STYLE = """
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+    color: #c9d1d9;
+  }
+  .eyebrow {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 { font-size: 3rem; font-weight: 800; line-height: 1.1;
+       color: #e6edf3; margin-bottom: 22px; letter-spacing: -0.5px; }
+  h1 em { color: #00c0f0; font-style: normal; }
+  h2 { font-size: 2rem; font-weight: 800; line-height: 1.15;
+       color: #e6edf3; margin-bottom: 18px; letter-spacing: -0.3px; }
+  p.body { font-size: 1rem; line-height: 1.85; color: #8b95a5; margin-bottom: 14px; }
+  .img-box {
+    width: 100%; height: 100%;
+    border: 2px dashed #1f6feb55; border-radius: 14px;
+    background: linear-gradient(135deg, #0d2a5c18 0%, #0a162820 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    color: #30363d;
+  }
+  .img-box .icon { font-size: 2.8rem; opacity: 0.5; }
+  .img-box .label { font-size: 0.7rem; letter-spacing: 2px;
+                    text-transform: uppercase; opacity: 0.6; }
+</style>
+"""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 1 — Hero: text left, image right
+# ──────────────────────────────────────────────────────────────────────────────
+def render_hero_panel() -> None:
     st.components.v1.html(
-        f"""
-        <script>
-          (function() {{
-            var el = window.parent.document.getElementById('{element_id}');
-            if (el) {{
-              el.scrollIntoView({{behavior: 'smooth', block: 'start'}});
-            }}
-          }})();
-        </script>
-        """,
-        height=0,
-    )
+        _PANEL_STYLE + """
+        <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
+                     min-height:680px; display:flex; align-items:center; padding:60px 48px;">
+          <div style="display:flex; gap:60px; align-items:center; width:100%;">
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Section 1 — The Story
-# ──────────────────────────────────────────────────────────────────────────────
-def render_story_section(image_path: Optional[str] = None) -> None:
-    """
-    Full-viewport hero panel: project image + narrative.
-    Replace image_path with the path to your actual project image once ready.
-    """
-    st.markdown('<div id="section-story" class="story-section section-story">', unsafe_allow_html=True)
-
-    # ── Hero image ────────────────────────────────────────────────────────────
-    if image_path and Path(image_path).exists():
-        import base64
-        with open(image_path, "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        ext = Path(image_path).suffix.lstrip(".")
-        st.markdown(
-            f'<div class="hero-image-wrap"><img src="data:image/{ext};base64,{img_b64}" /></div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        # Placeholder — swap in a real image by setting image_path above
-        st.markdown(
-            """
-            <div class="hero-image-wrap">
-              <span class="hero-image-placeholder">
-                [ Project image — add assets/hero.png to replace this ]
-              </span>
+            <!-- Left: text -->
+            <div style="flex:1; min-width:0;">
+              <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
+              <h1>What if<br>polymers could<br><em>speak</em>?</h1>
+              <p class="body">
+                Every polymer carries a unique sequence of atoms in its repeat unit —
+                a molecular fingerprint that defines its properties.
+                We turn that fingerprint into sound.
+              </p>
+              <p class="body">
+                Scroll down to meet the team, learn the story,
+                and then draw your own polymer to hear it.
+              </p>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    # ── Narrative text ────────────────────────────────────────────────────────
-    st.markdown(
-        """
-        <p class="story-eyebrow">The Origin Story</p>
-        <h1 class="story-headline">What if polymers<br>could speak?</h1>
-        <div class="story-body">
-          <p>
-            It started with a simple question in the lab: every polymer has a unique
-            molecular fingerprint — a sequence of atoms arranged in a repeating chain
-            that determines everything from tensile strength to conductivity.
-            But fingerprints are silent.  What if we gave them a voice?
-          </p>
-          <p>
-            We mapped each atom type to a musical note across two octaves —
-            carbon to a warm middle C, oxygen to an open G, nitrogen to the
-            concert A — and let the repeat unit of a polymer compose its own melody.
-            The result is a sonic identity: two polymers that look almost identical
-            on paper can sound strikingly different when you listen.
-          </p>
-          <p>
-            This tool is the first step.  Draw a polymer, press play, and hear
-            its structure for the very first time.
-          </p>
-        </div>
-        <a class="scroll-cue" href="#section-lab">Begin in the lab &darr;</a>
+            <!-- Right: image placeholder -->
+            <div style="flex:1; min-width:0; height:400px;">
+              <div class="img-box">
+                <div class="icon">🖼</div>
+                <div class="label">Add assets/hero.png</div>
+              </div>
+            </div>
+
+          </div>
+        </body>
         """,
-        unsafe_allow_html=True,
+        height=680,
+        scrolling=False,
     )
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Section 2 — The Lab  (input + sonify button)
+# Section 2 — Team: 10 image holder spaces in a 5×2 grid
+# ──────────────────────────────────────────────────────────────────────────────
+
+# TODO: Replace placeholder entries with real names, roles, and image paths.
+TEAM_MEMBERS: list[dict] = [
+    {"name": "Member 1", "role": "Role / Affiliation"},
+    {"name": "Member 2", "role": "Role / Affiliation"},
+    {"name": "Member 3", "role": "Role / Affiliation"},
+    {"name": "Member 4", "role": "Role / Affiliation"},
+    {"name": "Member 5", "role": "Role / Affiliation"},
+    {"name": "Member 6", "role": "Role / Affiliation"},
+    {"name": "Member 7", "role": "Role / Affiliation"},
+    {"name": "Member 8", "role": "Role / Affiliation"},
+    {"name": "Member 9", "role": "Role / Affiliation"},
+    {"name": "Member 10", "role": "Role / Affiliation"},
+]
+
+
+def _member_card(name: str, role: str, img_path: Optional[str] = None) -> str:
+    """Return the HTML snippet for one team member card."""
+    import base64
+    if img_path and Path(img_path).exists():
+        with open(img_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        ext = Path(img_path).suffix.lstrip(".")
+        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />'
+    else:
+        photo = '<div class="img-box" style="height:100%;border-radius:12px;"><div class="icon" style="font-size:2rem;">👤</div></div>'
+
+    return f"""
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div style="width:100%;aspect-ratio:1;">{photo}</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
+        <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
+      </div>
+    </div>
+    """
+
+
+def render_team_panel() -> None:
+    cards_html = "".join(
+        _member_card(m["name"], m["role"], m.get("img"))
+        for m in TEAM_MEMBERS
+    )
+    st.components.v1.html(
+        _PANEL_STYLE + f"""
+        <body style="background:#0d1117; padding:60px 48px; min-height:700px;">
+
+          <!-- Header -->
+          <div style="text-align:center; margin-bottom:48px;">
+            <p class="eyebrow" style="color:#00c0f0;">The People</p>
+            <h2>Meet the Team</h2>
+            <p class="body" style="max-width:520px;margin:10px auto 0;">
+              The researchers and engineers behind Polymer Sonification.
+            </p>
+          </div>
+
+          <!-- 5-column grid, 2 rows = 10 slots -->
+          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:28px;">
+            {cards_html}
+          </div>
+
+        </body>
+        """,
+        height=720,
+        scrolling=False,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 3 — About: image left, text right, CTA button at bottom
+# ──────────────────────────────────────────────────────────────────────────────
+def render_about_panel() -> None:
+    st.components.v1.html(
+        _PANEL_STYLE + """
+        <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
+                     min-height:600px; display:flex; align-items:center; padding:60px 48px;">
+          <div style="display:flex; gap:60px; align-items:center; width:100%;">
+
+            <!-- Left: image placeholder -->
+            <div style="flex:1; min-width:0; height:380px;">
+              <div class="img-box" style="height:100%;">
+                <div class="icon">🔬</div>
+                <div class="label">Add assets/about.png</div>
+              </div>
+            </div>
+
+            <!-- Right: text -->
+            <div style="flex:1; min-width:0;">
+              <p class="eyebrow" style="color:#7ee787;">The Project</p>
+              <h2>Turning chemistry<br>into music</h2>
+              <p class="body">
+                We started this project with a curiosity: if every polymer has a unique
+                molecular structure, could that structure produce a unique sound?
+              </p>
+              <p class="body">
+                Using a pre-trained machine-learning model on polymer data, we map each
+                repeat unit's atoms to musical notes across two octaves — heavier atoms
+                play lower notes, lighter atoms play higher ones.
+              </p>
+              <p class="body">
+                The result is a sonic fingerprint: an audio identity that is as unique
+                to a polymer as its SMILES string.
+              </p>
+            </div>
+
+          </div>
+        </body>
+        """,
+        height=620,
+        scrolling=False,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 4 — Lab: Streamlit input widgets
 # ──────────────────────────────────────────────────────────────────────────────
 def render_lab_section(model, is_mock: bool) -> bool:
-    """
-    Renders the input panel.  Returns True if the Sonify button was clicked.
-    """
+    """Renders the input panel. Returns True if Sonify was clicked."""
     badge = (
         '<span class="badge-mock">Mock model</span>'
         if is_mock
         else '<span class="badge-real">Model loaded</span>'
     )
-
     st.markdown(
-        f"""
-        <div id="section-lab" class="story-section section-lab">
-          <p class="lab-eyebrow">Step 2 — The Lab</p>
-          <h2 class="lab-headline">Draw your polymer {badge}</h2>
-          <p class="lab-sub">
-            Use the Ketcher editor to sketch a repeat unit with two
-            <code style="color:#7ee787">*</code> attachment points,
-            or paste a PSMILES string directly.
-          </p>
-        </div>
-        """,
+        f'<p style="font-size:0.7rem;font-weight:700;letter-spacing:3px;color:#00c0f0;'
+        f'text-transform:uppercase;margin-bottom:6px;">The Lab</p>'
+        f'<h2 style="font-size:1.9rem;font-weight:800;color:#e6edf3;margin-bottom:6px;">'
+        f'Draw your polymer &nbsp;{badge}</h2>'
+        f'<p style="font-size:0.95rem;color:#8b95a5;margin-bottom:20px;">'
+        f'Use the Ketcher editor or paste a PSMILES string. '
+        f'Mark the repeat unit with two <code style="color:#7ee787">*</code> atoms.</p>',
         unsafe_allow_html=True,
     )
 
-    # The actual input widgets must live outside the raw HTML div so Streamlit
-    # can render its own components inside.
     if not KETCHER_AVAILABLE:
         st.warning("**streamlit-ketcher** not installed — `pip install streamlit-ketcher`")
     if not RDKIT_AVAILABLE:
-        st.warning("**rdkit** not installed — structure preview disabled — `pip install rdkit`")
+        st.warning("**rdkit** not installed — `pip install rdkit`")
 
     raw_input = render_input_section()
 
-    # Commit PSMILES
     if st.session_state.rt_psmiles_str:
         st.session_state.psmiles = st.session_state.rt_psmiles_str
     elif raw_input:
         st.session_state.psmiles = raw_input.strip()
     st.session_state.example_psmiles_for_input = ""
 
-    # Controls row
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     col_predict, col_example, col_reset = st.columns([2, 2, 1])
 
@@ -705,28 +724,21 @@ def render_lab_section(model, is_mock: bool) -> bool:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Section 3 — The Sound  (results)
+# Section 5 — Results
 # ──────────────────────────────────────────────────────────────────────────────
 def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> None:
-    """Renders the audio result panel."""
-
     st.markdown(
-        """
-        <div id="section-result" class="story-section section-result">
-          <p class="result-eyebrow">Step 3 — The Sound</p>
-          <h2 class="result-headline">Your polymer has a voice.</h2>
-          <p class="result-sub">
-            Each atom in the repeat unit played its assigned note in sequence.
-            What you hear below is the acoustic fingerprint of your polymer.
-          </p>
-        </div>
-        """,
+        '<p style="font-size:0.7rem;font-weight:700;letter-spacing:3px;color:#7ee787;'
+        'text-transform:uppercase;margin-bottom:6px;">The Sound</p>'
+        '<h2 style="font-size:1.9rem;font-weight:800;color:#e6edf3;margin-bottom:6px;">'
+        'Your polymer has a voice.</h2>'
+        '<p style="font-size:0.95rem;color:#8b95a5;margin-bottom:20px;">'
+        'Each atom in the repeat unit was mapped to a musical note and concatenated.</p>',
         unsafe_allow_html=True,
     )
 
     st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
-    # PSMILES recap
     st.markdown(
         f'<p class="section-label">Polymer</p>'
         f'<div class="psmiles-box">{psmiles}</div>',
@@ -734,14 +746,12 @@ def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> No
     )
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
-    # Waveform
     st.markdown('<p class="section-label">Waveform</p>', unsafe_allow_html=True)
     with st.spinner("Rendering waveform…"):
         fig = plot_waveform(audio_bytes)
     st.pyplot(fig, use_container_width=True)
     plt.close(fig)
 
-    # Player + download
     st.markdown('<p class="section-label" style="margin-top:12px">Playback</p>', unsafe_allow_html=True)
     fmt = "audio/wav" if audio_bytes[:4] == b"RIFF" else "audio/mpeg"
     audio_col, dl_col = st.columns([3, 1])
@@ -756,10 +766,8 @@ def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> No
             mime=fmt,
             use_container_width=True,
         )
-
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Debug expander
     with st.expander("Debug / details", expanded=False):
         c1, c2 = st.columns(2)
         with c1:
@@ -767,28 +775,58 @@ def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> No
             st.code(psmiles, language="text")
         with c2:
             st.markdown("**Model**")
-            st.code(
-                str(MODEL_PATH) + ("\n[mock]" if is_mock else "\n[loaded]"),
-                language="text",
-            )
+            st.code(str(MODEL_PATH) + ("\n[mock]" if is_mock else "\n[loaded]"), language="text")
         st.code(f"{len(audio_bytes):,} bytes  |  {fmt}", language="text")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Main — orchestrates the three story sections
+# Main — five-section scroll story
 # ──────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     model   = load_model()
     is_mock = model == "mock"
 
-    # ── Section 1: Story ─────────────────────────────────────────────────────
-    # Pass a path like "assets/hero.png" once you have a project image.
-    render_story_section(image_path=None)
+    # ── 1. Hero ───────────────────────────────────────────────────────────────
+    render_hero_panel()
 
-    # ── Section 2: Lab (input) ───────────────────────────────────────────────
-    predict_clicked = render_lab_section(model, is_mock)
+    # ── 2. Team ───────────────────────────────────────────────────────────────
+    render_team_panel()
 
-    # ── Run inference ─────────────────────────────────────────────────────────
+    # ── 3. About ──────────────────────────────────────────────────────────────
+    render_about_panel()
+
+    # ── CTA button (bottom of about → jumps to lab) ───────────────────────────
+    st.markdown(
+        '<div style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);"'
+        ' id="cta-row">',
+        unsafe_allow_html=True,
+    )
+    _, col_btn, _ = st.columns([2, 3, 2])
+    with col_btn:
+        go_clicked = st.button(
+            "Start Sonifying  →",
+            type="primary",
+            use_container_width=True,
+            key="cta_go",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div style="height:60px;background:#0d1117"></div>', unsafe_allow_html=True)
+
+    # ── 4. Lab ────────────────────────────────────────────────────────────────
+    with st.container():
+        st.markdown('<div id="section-lab"></div>', unsafe_allow_html=True)
+        predict_clicked = render_lab_section(model, is_mock)
+
+    # scroll to lab when CTA is clicked
+    if go_clicked:
+        st.components.v1.html(
+            "<script>window.parent.document.getElementById('section-lab')"
+            ".scrollIntoView({behavior:'smooth',block:'start'});</script>",
+            height=0,
+        )
+
+    # ── Run inference ──────────────────────────────────────────────────────────
     if predict_clicked and st.session_state.psmiles:
         with st.spinner("Sonifying polymer…"):
             features    = preprocess(st.session_state.psmiles)
@@ -796,16 +834,21 @@ def main() -> None:
         st.session_state.audio_bytes = audio_bytes
         st.session_state.predicted   = True
 
-    # ── Section 3: Sound (results) ───────────────────────────────────────────
+    # ── 5. Results ────────────────────────────────────────────────────────────
     if st.session_state.predicted and st.session_state.audio_bytes is not None:
+        st.markdown('<div style="height:40px;background:#0a0d14"></div>', unsafe_allow_html=True)
+        st.markdown('<div id="section-result"></div>', unsafe_allow_html=True)
         render_result_section(
             audio_bytes=st.session_state.audio_bytes,
             psmiles=st.session_state.psmiles,
             is_mock=is_mock,
         )
-        # Auto-scroll to results only right after the button was clicked
         if predict_clicked:
-            _scroll_to("section-result")
+            st.components.v1.html(
+                "<script>window.parent.document.getElementById('section-result')"
+                ".scrollIntoView({behavior:'smooth',block:'start'});</script>",
+                height=0,
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
