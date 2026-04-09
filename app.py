@@ -608,13 +608,13 @@ def render_team_panel() -> None:
           </div>
 
           <!-- 5-column grid, 2 rows = 10 slots -->
-          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:28px;">
+          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:24px;">
             {cards_html}
           </div>
 
         </body>
         """,
-        height=720,
+        height=940,
         scrolling=False,
     )
 
