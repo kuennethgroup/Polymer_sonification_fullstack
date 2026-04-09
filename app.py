@@ -70,20 +70,89 @@ EXAMPLE_PSMILES = "[*]CC[*]"  # polyethylene repeat unit
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Custom CSS
+# Custom CSS — story scroll layout
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
-    .stApp { background: #0e1117; }
+    /* ── global ── */
+    html, body, .stApp { background: #0a0d14; color: #c9d1d9; }
 
-    .hero-title {
-        font-size: 2.4rem; font-weight: 800; color: #00c0f0;
-        letter-spacing: -0.5px; margin-bottom: 0;
+    /* hide default Streamlit top padding so sections butt up cleanly */
+    .block-container { padding-top: 0 !important; max-width: 100% !important; }
+
+    /* ── story section panels ── */
+    .story-section {
+        min-height: 100vh;
+        display: flex; flex-direction: column; justify-content: center;
+        padding: 5vh 8vw;
+        scroll-margin-top: 0;
+        position: relative;
     }
-    .hero-sub { font-size: 1rem; color: #8b95a5; margin-top: 4px; }
-    .divider  { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
+    .section-story  { background: linear-gradient(160deg, #0a0d14 0%, #0d1b2a 60%, #0a1628 100%); }
+    .section-lab    { background: #0d1117; border-top: 1px solid #1f2733; }
+    .section-result { background: linear-gradient(180deg, #0d1117 0%, #050d18 100%);
+                      border-top: 1px solid #1f6feb33; }
 
+    /* ── story section: hero image placeholder ── */
+    .hero-image-wrap {
+        width: 100%; max-width: 820px;
+        aspect-ratio: 16/7;
+        border-radius: 16px; overflow: hidden;
+        border: 1px solid #1f6feb44;
+        background: linear-gradient(135deg, #0d2a5c 0%, #0a1628 50%, #1a0d2e 100%);
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 2.5rem auto;
+        position: relative;
+    }
+    .hero-image-wrap img {
+        width: 100%; height: 100%; object-fit: cover; border-radius: 16px;
+    }
+    .hero-image-placeholder {
+        color: #30363d; font-size: 1rem; letter-spacing: 2px; text-transform: uppercase;
+    }
+
+    /* ── story text ── */
+    .story-eyebrow {
+        font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; color: #00c0f0;
+        text-transform: uppercase; margin-bottom: 1rem;
+    }
+    .story-headline {
+        font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 800; line-height: 1.15;
+        color: #e6edf3; margin-bottom: 1.2rem; letter-spacing: -0.5px;
+    }
+    .story-body {
+        font-size: 1.05rem; line-height: 1.85; color: #8b95a5;
+        max-width: 640px;
+    }
+    .story-body p { margin-bottom: 1rem; }
+
+    /* ── scroll-down cue ── */
+    .scroll-cue {
+        display: inline-flex; align-items: center; gap: 8px;
+        color: #00c0f0; font-size: 0.85rem; font-weight: 600;
+        text-decoration: none; margin-top: 2rem;
+        padding: 10px 22px; border: 1px solid #00c0f044;
+        border-radius: 30px; transition: background 0.2s;
+    }
+    .scroll-cue:hover { background: #00c0f011; }
+
+    /* ── lab section header ── */
+    .lab-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 3px;
+                   color: #00c0f0; text-transform: uppercase; margin-bottom: 0.5rem; }
+    .lab-headline { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800;
+                    color: #e6edf3; margin-bottom: 0.4rem; }
+    .lab-sub { font-size: 0.95rem; color: #8b95a5; margin-bottom: 1.8rem; }
+
+    /* ── result section header ── */
+    .result-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 3px;
+                      color: #7ee787; text-transform: uppercase; margin-bottom: 0.5rem; }
+    .result-headline { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800;
+                       color: #e6edf3; margin-bottom: 0.4rem; }
+    .result-sub { font-size: 0.95rem; color: #8b95a5; margin-bottom: 1.8rem; }
+
+    /* ── misc reused components ── */
+    .divider  { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
     .section-label {
         font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px;
         color: #4a6fa5; text-transform: uppercase; margin-bottom: 6px;
@@ -96,7 +165,7 @@ st.markdown(
     }
     .result-card {
         background: #161b22; border: 1px solid #1f6feb;
-        border-radius: 10px; padding: 18px 20px; margin-top: 10px;
+        border-radius: 12px; padding: 24px 28px; margin-top: 10px;
     }
     .badge-mock {
         display: inline-block; background: #1a3a1a; color: #3fb950;
@@ -478,63 +547,144 @@ def render_input_section() -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Main UI
+# JS helper — smooth-scroll the Streamlit viewport to a named element
 # ──────────────────────────────────────────────────────────────────────────────
-def main() -> None:
-    model   = load_model()
-    is_mock = model == "mock"
+def _scroll_to(element_id: str) -> None:
+    """
+    Inject a tiny invisible iframe whose JS scrolls the parent Streamlit
+    viewport to the element with the given id.  Height=0 keeps it invisible.
+    """
+    st.components.v1.html(
+        f"""
+        <script>
+          (function() {{
+            var el = window.parent.document.getElementById('{element_id}');
+            if (el) {{
+              el.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+            }}
+          }})();
+        </script>
+        """,
+        height=0,
+    )
 
-    # ── Hero header ──────────────────────────────────────────────────────────
-    col_title, col_badge = st.columns([5, 1])
-    with col_title:
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 1 — The Story
+# ──────────────────────────────────────────────────────────────────────────────
+def render_story_section(image_path: Optional[str] = None) -> None:
+    """
+    Full-viewport hero panel: project image + narrative.
+    Replace image_path with the path to your actual project image once ready.
+    """
+    st.markdown('<div id="section-story" class="story-section section-story">', unsafe_allow_html=True)
+
+    # ── Hero image ────────────────────────────────────────────────────────────
+    if image_path and Path(image_path).exists():
+        import base64
+        with open(image_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        ext = Path(image_path).suffix.lstrip(".")
         st.markdown(
-            '<p class="hero-title">🔬 Polymer Sonification</p>'
-            '<p class="hero-sub">'
-            "Draw or enter a polymer structure → receive a predicted audio fingerprint"
-            "</p>",
+            f'<div class="hero-image-wrap"><img src="data:image/{ext};base64,{img_b64}" /></div>',
             unsafe_allow_html=True,
         )
-    with col_badge:
-        badge = (
-            '<span class="badge-mock">Mock model</span>'
-            if is_mock
-            else '<span class="badge-real">Model loaded</span>'
+    else:
+        # Placeholder — swap in a real image by setting image_path above
+        st.markdown(
+            """
+            <div class="hero-image-wrap">
+              <span class="hero-image-placeholder">
+                [ Project image — add assets/hero.png to replace this ]
+              </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        st.markdown(f'<div style="padding-top:18px">{badge}</div>', unsafe_allow_html=True)
 
+    # ── Narrative text ────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <p class="story-eyebrow">The Origin Story</p>
+        <h1 class="story-headline">What if polymers<br>could speak?</h1>
+        <div class="story-body">
+          <p>
+            It started with a simple question in the lab: every polymer has a unique
+            molecular fingerprint — a sequence of atoms arranged in a repeating chain
+            that determines everything from tensile strength to conductivity.
+            But fingerprints are silent.  What if we gave them a voice?
+          </p>
+          <p>
+            We mapped each atom type to a musical note across two octaves —
+            carbon to a warm middle C, oxygen to an open G, nitrogen to the
+            concert A — and let the repeat unit of a polymer compose its own melody.
+            The result is a sonic identity: two polymers that look almost identical
+            on paper can sound strikingly different when you listen.
+          </p>
+          <p>
+            This tool is the first step.  Draw a polymer, press play, and hear
+            its structure for the very first time.
+          </p>
+        </div>
+        <a class="scroll-cue" href="#section-lab">Begin in the lab &darr;</a>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 2 — The Lab  (input + sonify button)
+# ──────────────────────────────────────────────────────────────────────────────
+def render_lab_section(model, is_mock: bool) -> bool:
+    """
+    Renders the input panel.  Returns True if the Sonify button was clicked.
+    """
+    badge = (
+        '<span class="badge-mock">Mock model</span>'
+        if is_mock
+        else '<span class="badge-real">Model loaded</span>'
+    )
+
+    st.markdown(
+        f"""
+        <div id="section-lab" class="story-section section-lab">
+          <p class="lab-eyebrow">Step 2 — The Lab</p>
+          <h2 class="lab-headline">Draw your polymer {badge}</h2>
+          <p class="lab-sub">
+            Use the Ketcher editor to sketch a repeat unit with two
+            <code style="color:#7ee787">*</code> attachment points,
+            or paste a PSMILES string directly.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # The actual input widgets must live outside the raw HTML div so Streamlit
+    # can render its own components inside.
     if not KETCHER_AVAILABLE:
-        st.warning(
-            "**streamlit-ketcher** is not installed — the drawing editor will be unavailable. "
-            "Install it with: `pip install streamlit-ketcher`"
-        )
+        st.warning("**streamlit-ketcher** not installed — `pip install streamlit-ketcher`")
     if not RDKIT_AVAILABLE:
-        st.warning(
-            "**rdkit** is not installed — structure rendering and validation are disabled. "
-            "Install it with: `pip install rdkit`"
-        )
+        st.warning("**rdkit** not installed — structure preview disabled — `pip install rdkit`")
 
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-
-    # ── Step 1: Input ─────────────────────────────────────────────────────────
-    st.markdown('<p class="section-label">Step 1 — Polymer Input</p>', unsafe_allow_html=True)
     raw_input = render_input_section()
 
-    # Commit validated canonical PSMILES to session state for prediction
+    # Commit PSMILES
     if st.session_state.rt_psmiles_str:
         st.session_state.psmiles = st.session_state.rt_psmiles_str
     elif raw_input:
-        # Fallback: use raw input if no validation layer is available
         st.session_state.psmiles = raw_input.strip()
-    # Clear the example loader after first use so it doesn't re-fire
     st.session_state.example_psmiles_for_input = ""
 
-    # ── Controls ─────────────────────────────────────────────────────────────
+    # Controls row
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     col_predict, col_example, col_reset = st.columns([2, 2, 1])
 
     with col_predict:
         predict_clicked = st.button(
-            "▶  Predict Sonification",
+            "🎵  Sonify",
             disabled=not bool(st.session_state.psmiles),
             type="primary",
             use_container_width=True,
@@ -542,7 +692,7 @@ def main() -> None:
     with col_example:
         if st.button("Load example  ([*]CC[*])", use_container_width=True):
             st.session_state.example_psmiles_for_input = EXAMPLE_PSMILES
-            st.session_state.psmiles    = EXAMPLE_PSMILES
+            st.session_state.psmiles     = EXAMPLE_PSMILES
             st.session_state.audio_bytes = None
             st.session_state.predicted   = False
             st.rerun()
@@ -551,58 +701,111 @@ def main() -> None:
             _reset()
             st.rerun()
 
-    # ── Prediction ───────────────────────────────────────────────────────────
+    return predict_clicked
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Section 3 — The Sound  (results)
+# ──────────────────────────────────────────────────────────────────────────────
+def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> None:
+    """Renders the audio result panel."""
+
+    st.markdown(
+        """
+        <div id="section-result" class="story-section section-result">
+          <p class="result-eyebrow">Step 3 — The Sound</p>
+          <h2 class="result-headline">Your polymer has a voice.</h2>
+          <p class="result-sub">
+            Each atom in the repeat unit played its assigned note in sequence.
+            What you hear below is the acoustic fingerprint of your polymer.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="result-card">', unsafe_allow_html=True)
+
+    # PSMILES recap
+    st.markdown(
+        f'<p class="section-label">Polymer</p>'
+        f'<div class="psmiles-box">{psmiles}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+
+    # Waveform
+    st.markdown('<p class="section-label">Waveform</p>', unsafe_allow_html=True)
+    with st.spinner("Rendering waveform…"):
+        fig = plot_waveform(audio_bytes)
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+
+    # Player + download
+    st.markdown('<p class="section-label" style="margin-top:12px">Playback</p>', unsafe_allow_html=True)
+    fmt = "audio/wav" if audio_bytes[:4] == b"RIFF" else "audio/mpeg"
+    audio_col, dl_col = st.columns([3, 1])
+    with audio_col:
+        st.audio(audio_bytes, format=fmt)
+    with dl_col:
+        ext = "wav" if fmt == "audio/wav" else "mp3"
+        st.download_button(
+            label="⬇ Download",
+            data=audio_bytes,
+            file_name=f"polymer_sound.{ext}",
+            mime=fmt,
+            use_container_width=True,
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Debug expander
+    with st.expander("Debug / details", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**PSMILES**")
+            st.code(psmiles, language="text")
+        with c2:
+            st.markdown("**Model**")
+            st.code(
+                str(MODEL_PATH) + ("\n[mock]" if is_mock else "\n[loaded]"),
+                language="text",
+            )
+        st.code(f"{len(audio_bytes):,} bytes  |  {fmt}", language="text")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Main — orchestrates the three story sections
+# ──────────────────────────────────────────────────────────────────────────────
+def main() -> None:
+    model   = load_model()
+    is_mock = model == "mock"
+
+    # ── Section 1: Story ─────────────────────────────────────────────────────
+    # Pass a path like "assets/hero.png" once you have a project image.
+    render_story_section(image_path=None)
+
+    # ── Section 2: Lab (input) ───────────────────────────────────────────────
+    predict_clicked = render_lab_section(model, is_mock)
+
+    # ── Run inference ─────────────────────────────────────────────────────────
     if predict_clicked and st.session_state.psmiles:
-        psmiles = st.session_state.psmiles
-        with st.spinner("Running inference…"):
-            features    = preprocess(psmiles)
-            audio_bytes = run_inference(model, features, psmiles)
+        with st.spinner("Sonifying polymer…"):
+            features    = preprocess(st.session_state.psmiles)
+            audio_bytes = run_inference(model, features, st.session_state.psmiles)
         st.session_state.audio_bytes = audio_bytes
         st.session_state.predicted   = True
 
-    # ── Results ──────────────────────────────────────────────────────────────
+    # ── Section 3: Sound (results) ───────────────────────────────────────────
     if st.session_state.predicted and st.session_state.audio_bytes is not None:
-        audio_bytes = st.session_state.audio_bytes
-
-        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-        st.markdown('<p class="section-label">Step 3 — Prediction Result</p>', unsafe_allow_html=True)
-        st.markdown('<div class="result-card">', unsafe_allow_html=True)
-
-        with st.spinner("Rendering waveform…"):
-            fig = plot_waveform(audio_bytes)
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
-
-        fmt = "audio/wav" if audio_bytes[:4] == b"RIFF" else "audio/mpeg"
-        audio_col, dl_col = st.columns([3, 1])
-        with audio_col:
-            st.audio(audio_bytes, format=fmt)
-        with dl_col:
-            ext = "wav" if fmt == "audio/wav" else "mp3"
-            st.download_button(
-                label="⬇ Download",
-                data=audio_bytes,
-                file_name=f"polymer_sound.{ext}",
-                mime=fmt,
-                use_container_width=True,
-            )
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        with st.expander("Debug / details", expanded=False):
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("**PSMILES used**")
-                st.code(st.session_state.psmiles, language="text")
-            with c2:
-                st.markdown("**Model**")
-                st.code(
-                    str(MODEL_PATH)
-                    + ("\n[mock — file not found]" if is_mock else "\n[loaded]"),
-                    language="text",
-                )
-            st.markdown("**Audio**")
-            st.code(f"{len(audio_bytes):,} bytes  |  format: {fmt}", language="text")
+        render_result_section(
+            audio_bytes=st.session_state.audio_bytes,
+            psmiles=st.session_state.psmiles,
+            is_mock=is_mock,
+        )
+        # Auto-scroll to results only right after the button was clicked
+        if predict_clicked:
+            _scroll_to("section-result")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
