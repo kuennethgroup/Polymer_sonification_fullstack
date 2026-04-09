@@ -526,8 +526,17 @@ _PANEL_STYLE = """
 # Section 1 — Hero: text left, image right
 # ──────────────────────────────────────────────────────────────────────────────
 def render_hero_panel() -> None:
+    import base64
+    _hero_img_path = Path("images/group_kv.jpeg")
+    if _hero_img_path.exists():
+        with open(_hero_img_path, "rb") as _f:
+            _hero_b64 = base64.b64encode(_f.read()).decode()
+        _hero_html = f'<img src="data:image/jpeg;base64,{_hero_b64}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" />'
+    else:
+        _hero_html = '<div class="img-box"><div class="icon">🖼</div><div class="label">Add images/group_kv.jpeg</div></div>'
+
     st.components.v1.html(
-        _PANEL_STYLE + """
+        _PANEL_STYLE + f"""
         <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
                      min-height:680px; display:flex; align-items:center; padding:60px 48px;">
           <div style="display:flex; gap:60px; align-items:center; width:100%;">
@@ -547,12 +556,9 @@ def render_hero_panel() -> None:
               </p>
             </div>
 
-            <!-- Right: image placeholder -->
+            <!-- Right: group image -->
             <div style="flex:1; min-width:0; height:400px;">
-              <div class="img-box">
-                <div class="icon">🖼</div>
-                <div class="label">Add assets/hero.png</div>
-              </div>
+              {_hero_html}
             </div>
 
           </div>
