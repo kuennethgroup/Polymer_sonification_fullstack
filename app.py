@@ -129,6 +129,11 @@ def _init_state() -> None:
         "show_lab": False,
         # flag to trigger scroll-to-top of lab section on first render after expand
         "just_expanded": False,
+        # reverse design tool state
+        "show_reverse_lab": False,
+        "just_expanded_reverse": False,
+        "reverse_psmiles": "",
+        "reverse_mol": None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -148,6 +153,10 @@ def _reset() -> None:
     st.session_state.example_psmiles_for_input = ""
     st.session_state.show_lab           = False
     st.session_state.just_expanded      = False
+    st.session_state.show_reverse_lab   = False
+    st.session_state.just_expanded_reverse = False
+    st.session_state.reverse_psmiles    = ""
+    st.session_state.reverse_mol        = None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -673,20 +682,11 @@ def render_about_panel() -> None:
 def render_reverse_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
-        <style>
-          .burg-btn-disabled {
-            display: inline-block; margin-top: 24px;
-            padding: 11px 28px; border-radius: 8px;
-            background: #2a1a1e; color: #7a4a52;
-            border: 1px solid #4a2530; font-size: 0.9rem;
-            font-weight: 700; cursor: not-allowed; text-decoration: none;
-          }
-        </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
-                     min-height:600px; display:flex; align-items:center; padding:60px 48px;">
+                     min-height:520px; display:flex; align-items:center; padding:60px 48px;">
           <div style="display:flex; gap:60px; align-items:center; width:100%;">
 
-            <!-- Left: text + button -->
+            <!-- Left: text -->
             <div style="flex:1; min-width:0;">
               <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
               <h2>Turning music<br>into chemistry</h2>
@@ -700,13 +700,12 @@ def render_reverse_panel() -> None:
                 composing a sound and letting the model propose a polymer that matches it.
               </p>
               <p class="body">
-                This feature is under development. Stay tuned.
+                This feature is under development. Upload an audio file below to try it.
               </p>
-              <span class="burg-btn-disabled">🔬 Start Reverse Design → (coming soon)</span>
             </div>
 
             <!-- Right: image placeholder -->
-            <div style="flex:1; min-width:0; height:380px;">
+            <div style="flex:1; min-width:0; height:340px;">
               <div class="img-box" style="height:100%;border-color:#d2a8ff44;">
                 <div class="icon">🎵</div>
                 <div class="label">Add assets/reverse.png</div>
@@ -716,9 +715,85 @@ def render_reverse_panel() -> None:
           </div>
         </body>
         """,
-        height=640,
+        height=560,
         scrolling=False,
     )
+
+
+def render_reverse_lab_section() -> None:
+    """Render the reverse-design tool: upload audio → model → PSMILES → structure."""
+    st.markdown(
+        '<p style="font-size:0.7rem;font-weight:700;letter-spacing:3px;color:#d2a8ff;'
+        'text-transform:uppercase;margin-bottom:6px;">Reverse Design</p>'
+        '<h2 style="font-size:1.9rem;font-weight:800;color:#e6edf3;margin-bottom:6px;">'
+        'Upload your audio</h2>'
+        '<p style="font-size:0.95rem;color:#8b95a5;margin-bottom:20px;">'
+        'Upload a WAV or MP3 file. The model will predict the polymer structure '
+        'that matches the audio fingerprint.</p>',
+        unsafe_allow_html=True,
+    )
+
+    uploaded = st.file_uploader(
+        "Choose a WAV or MP3 file",
+        type=["wav", "mp3"],
+        key="reverse_audio_upload",
+    )
+
+    if uploaded is not None:
+        st.audio(uploaded, format=uploaded.type)
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+        col_pred, col_reset = st.columns([3, 1])
+        with col_pred:
+            predict_clicked = st.button(
+                "🔬 Predict Structure",
+                type="primary",
+                use_container_width=True,
+                key="reverse_predict_btn",
+            )
+        with col_reset:
+            if st.button("↺ Reset", use_container_width=True, key="reverse_reset_btn"):
+                st.session_state.reverse_psmiles = ""
+                st.session_state.reverse_mol     = None
+                st.rerun()
+
+        if predict_clicked:
+            with st.spinner("Running reverse model… (placeholder)"):
+                # ── TODO: replace with real reverse model call ──────────────
+                # audio_bytes = uploaded.read()
+                # result_psmiles = reverse_model.predict(audio_bytes)
+                # For now return a placeholder PSMILES so the UI can be tested.
+                result_psmiles = "[*]CC[*]"
+                # ────────────────────────────────────────────────────────────
+
+            st.session_state.reverse_psmiles = result_psmiles
+            _, mol, err = validate_psmiles(result_psmiles)
+            st.session_state.reverse_mol = mol if not err else None
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    if st.session_state.reverse_psmiles:
+        st.markdown(
+            '<p style="font-size:0.7rem;font-weight:700;letter-spacing:3px;color:#d2a8ff;'
+            'text-transform:uppercase;margin-bottom:10px;">Predicted Structure</p>',
+            unsafe_allow_html=True,
+        )
+        col_info, col_img = st.columns([1, 1])
+        with col_info:
+            st.markdown(
+                f'<p style="font-size:0.85rem;color:#8b95a5;margin-bottom:8px;">PSMILES</p>'
+                f'<div class="psmiles-box">{st.session_state.reverse_psmiles}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+            st.caption("Model output is a placeholder until the reverse model is trained.")
+        with col_img:
+            if st.session_state.reverse_mol is not None:
+                svg = mol_to_svg(st.session_state.reverse_mol, width=300, height=260)
+                if svg:
+                    st.image(svg, width=300)
+            else:
+                st.info("Could not render structure — install `rdkit` for visualisation.")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -898,8 +973,36 @@ def main() -> None:
 
     st.markdown('<div style="height:60px;background:#0d1117"></div>', unsafe_allow_html=True)
 
-    # ── 4. Reverse panel ──────────────────────────────────────────────────────
+    # ── 4. Reverse panel ─────────────────────────────────────────────────────
     render_reverse_panel()
+
+    # ── Inline expand: reverse design tool ───────────────────────────────────
+    col_l2, col_mid2, col_r2 = st.columns([1, 2, 1])
+    with col_mid2:
+        if not st.session_state.show_reverse_lab:
+            if st.button("🔬 Try Reverse Design →", use_container_width=True, key="start_reverse_btn"):
+                st.session_state.show_reverse_lab    = True
+                st.session_state.just_expanded_reverse = True
+                st.rerun()
+        else:
+            if st.button("✕ Close Reverse Tool", use_container_width=True, key="close_reverse_btn"):
+                st.session_state.show_reverse_lab = False
+                st.rerun()
+
+    if st.session_state.show_reverse_lab:
+        st.markdown('<div id="section-reverse-top" style="height:32px;background:#0d1117"></div>', unsafe_allow_html=True)
+        if st.session_state.just_expanded_reverse:
+            st.session_state.just_expanded_reverse = False
+            st.components.v1.html(
+                "<script>"
+                "window.parent.document.getElementById('section-reverse-top')"
+                ".scrollIntoView({behavior:'smooth', block:'start'});"
+                "</script>",
+                height=0,
+            )
+        render_reverse_lab_section()
+
+    st.markdown('<div style="height:80px;background:#0d1117"></div>', unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
