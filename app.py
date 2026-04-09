@@ -65,7 +65,7 @@ except ImportError:
 # ──────────────────────────────────────────────────────────────────────────────
 MODEL_PATH     = Path("model/model.pkl")
 SAMPLE_RATE    = 22_050       # Hz — used for mock audio generation
-MOCK_DURATION  = 3.0          # seconds
+MOCK_DURATION  = 5.0          # seconds
 EXAMPLE_PSMILES = "[*]CC[*]"  # polyethylene repeat unit
 
 
@@ -134,6 +134,7 @@ def _init_state() -> None:
         "just_expanded_reverse": False,
         "reverse_psmiles": "",
         "reverse_mol": None,
+        "scroll_to_result": False,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -269,36 +270,91 @@ def preprocess(psmiles: str) -> np.ndarray:
 # ──────────────────────────────────────────────────────────────────────────────
 def generate_mock_audio(psmiles: str) -> bytes:
     """
-    Produce a deterministic multi-tone WAV waveform seeded from the PSMILES
-    string.  Each unique polymer yields a distinct pitch combination.
-    Returns raw WAV bytes.
+    FM-synthesis + chord + tremolo + reverb-tail mock audio seeded from PSMILES.
+    Each polymer gets a unique tonal character.  Returns raw WAV bytes.
     """
     rng = np.random.default_rng(abs(hash(psmiles)) % (2 ** 32))
-    n_samples = int(SAMPLE_RATE * MOCK_DURATION)
-    t = np.linspace(0, MOCK_DURATION, n_samples, endpoint=False)
+    SR  = SAMPLE_RATE
+    DUR = MOCK_DURATION
+    N   = int(SR * DUR)
+    t   = np.linspace(0, DUR, N, endpoint=False)
 
-    base_freq = 220.0 + rng.random() * 440.0
-    signal = (
-        0.60 * np.sin(2 * math.pi * base_freq * t)
-        + 0.25 * np.sin(2 * math.pi * base_freq * 2 * t)
-        + 0.10 * np.sin(2 * math.pi * base_freq * 3 * t)
-        + 0.05 * np.sin(2 * math.pi * base_freq * 5 * t)
+    # ── 1. Pick a root note and a 3-note chord ────────────────────────────────
+    # Roots spread across two octaves (110 – 440 Hz)
+    root  = 110.0 * 2 ** (rng.random() * 2.0)
+    # Intervals: minor/major third + fifth, randomly chosen
+    ratios = rng.choice(
+        [[1.0, 1.25, 1.5], [1.0, 1.2, 1.5], [1.0, 1.333, 1.667],
+         [1.0, 1.25, 1.667], [1.0, 1.5, 2.0]],
+    )
+    freqs = [root * r for r in ratios]
+
+    # ── 2. FM synthesis per note ──────────────────────────────────────────────
+    def fm_tone(fc: float, fm_ratio: float, fm_idx: float) -> np.ndarray:
+        fm = fm_ratio * fc
+        modulator = fm_idx * np.sin(2 * math.pi * fm * t)
+        return np.sin(2 * math.pi * fc * t + modulator)
+
+    fm_ratio = 1.5 + rng.random() * 2.5   # modulator/carrier ratio
+    fm_idx   = 1.0 + rng.random() * 4.0   # modulation depth
+
+    chord = sum(
+        w * fm_tone(f, fm_ratio, fm_idx)
+        for f, w in zip(freqs, [0.55, 0.30, 0.20])
     )
 
-    attack  = int(0.05 * SAMPLE_RATE)
-    release = int(0.30 * SAMPLE_RATE)
-    env = np.ones(n_samples)
-    env[:attack]   = np.linspace(0, 1, attack)
-    env[-release:] = np.linspace(1, 0, release)
-    signal *= env
+    # ── 3. Add sub-bass pulse (root / 2) ─────────────────────────────────────
+    sub = 0.18 * np.sin(2 * math.pi * (root / 2) * t)
 
-    signal = (signal / np.max(np.abs(signal)) * 32_767).astype(np.int16)
+    # ── 4. Tremolo (amplitude LFO) ────────────────────────────────────────────
+    lfo_rate = 2.0 + rng.random() * 5.0          # 2–7 Hz
+    lfo_depth = 0.25 + rng.random() * 0.35       # 25–60 %
+    tremolo = 1.0 - lfo_depth * (0.5 - 0.5 * np.sin(2 * math.pi * lfo_rate * t))
+
+    signal = (chord + sub) * tremolo
+
+    # ── 5. Pitch vibrato on the chord ────────────────────────────────────────
+    vib_rate  = 4.5 + rng.random() * 2.0
+    vib_depth = 0.003 + rng.random() * 0.007     # ±semitone-ish
+    phase_mod = vib_depth * np.cumsum(np.sin(2 * math.pi * vib_rate * t)) / SR
+    signal   += 0.3 * np.sin(2 * math.pi * root * (t + phase_mod))
+
+    # ── 6. Sparse high-frequency partials (brightness) ───────────────────────
+    for k in [4, 6, 8]:
+        amp = rng.random() * 0.06
+        signal += amp * np.sin(2 * math.pi * root * k * t)
+
+    # ── 7. Envelope: smooth ADSR ──────────────────────────────────────────────
+    a = int(0.08 * SR)   # attack  80 ms
+    d = int(0.15 * SR)   # decay  150 ms
+    s_level = 0.72
+    r = int(0.55 * SR)   # release 550 ms
+
+    env = np.ones(N) * s_level
+    env[:a]        = np.linspace(0, 1, a)
+    env[a:a+d]     = np.linspace(1, s_level, d)
+    env[N-r:]      = np.linspace(s_level, 0, r)
+    signal        *= env
+
+    # ── 8. Simple comb-filter reverb tail ────────────────────────────────────
+    delay_samples = int(0.035 * SR)   # ~35 ms room
+    decay_fb      = 0.45
+    reverb = signal.copy()
+    for _ in range(6):
+        reverb[delay_samples:] += decay_fb * reverb[:-delay_samples]
+        decay_fb *= 0.55
+    signal = 0.7 * signal + 0.3 * reverb
+
+    # ── 9. Soft clip + normalise ──────────────────────────────────────────────
+    signal = np.tanh(signal * 1.4)                          # soft clip
+    signal = signal / np.max(np.abs(signal) + 1e-9)        # normalise
+    signal = (signal * 32_767).astype(np.int16)
 
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
-        wf.setframerate(SAMPLE_RATE)
+        wf.setframerate(SR)
         wf.writeframes(signal.tobytes())
     return buf.getvalue()
 
@@ -864,6 +920,290 @@ def render_lab_section(model, is_mock: bool) -> bool:
 # ──────────────────────────────────────────────────────────────────────────────
 # Section 5 — Results
 # ──────────────────────────────────────────────────────────────────────────────
+def render_audio_visualizer(audio_bytes: bytes) -> None:
+    """
+    Oscilloscope-style waveform: X = time (within the analysis window),
+    Y = amplitude (-1 → +1), animated in real-time via Web Audio API.
+    """
+    import base64
+    fmt = "audio/wav" if audio_bytes[:4] == b"RIFF" else "audio/mpeg"
+    b64 = base64.b64encode(audio_bytes).decode()
+    html = f"""
+    <style>
+      #viz-wrap {{
+        background: #080c12;
+        border-radius: 14px;
+        padding: 0;
+        border: 1px solid #1a2a3a;
+        overflow: hidden;
+      }}
+      #viz-canvas {{
+        width: 100%;
+        height: 160px;
+        display: block;
+        background: #080c12;
+      }}
+      #viz-controls {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px 12px;
+        background: #0c1520;
+        border-top: 1px solid #1a2a3a;
+      }}
+      #play-btn {{
+        background: #00c0f0;
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #080c12;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
+        font-weight: bold;
+      }}
+      #play-btn:hover {{ background: #33d6ff; }}
+      #seek-bar {{
+        flex: 1;
+        -webkit-appearance: none;
+        height: 3px;
+        border-radius: 2px;
+        background: #1f2d3d;
+        outline: none;
+        cursor: pointer;
+      }}
+      #seek-bar::-webkit-slider-thumb {{
+        -webkit-appearance: none;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #00c0f0;
+        cursor: pointer;
+      }}
+      #time-label {{
+        font-size: 10px;
+        color: #4a6070;
+        font-family: monospace;
+        flex-shrink: 0;
+        min-width: 68px;
+        text-align: right;
+        letter-spacing: 0.5px;
+      }}
+    </style>
+
+    <div id="viz-wrap">
+      <canvas id="viz-canvas"></canvas>
+      <div id="viz-controls">
+        <button id="play-btn">&#9654;</button>
+        <input type="range" id="seek-bar" value="0" min="0" step="0.01">
+        <span id="time-label">0:00 / 0:00</span>
+      </div>
+    </div>
+
+    <script>
+    (function() {{
+      const b64   = "{b64}";
+      const mime  = "{fmt}";
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const blob  = new Blob([bytes], {{type: mime}});
+      const url   = URL.createObjectURL(blob);
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      let ctx, analyser, source, buf;
+      let playing   = false;
+      let startedAt = 0;
+      let pausedAt  = 0;
+      let animId    = null;
+
+      const canvas     = document.getElementById("viz-canvas");
+      const cc         = canvas.getContext("2d");
+      const playBtn    = document.getElementById("play-btn");
+      const seekBar    = document.getElementById("seek-bar");
+      const timeLabel  = document.getElementById("time-label");
+
+      function resizeCanvas() {{
+        canvas.width  = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }}
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+
+      // Decode audio once
+      fetch(url)
+        .then(r => r.arrayBuffer())
+        .then(ab => {{
+          ctx = new AudioCtx();
+          return ctx.decodeAudioData(ab);
+        }})
+        .then(decoded => {{
+          buf = decoded;
+          seekBar.max = buf.duration.toFixed(2);
+          timeLabel.textContent = "0:00 / " + fmtT(buf.duration);
+          drawIdle();
+        }});
+
+      function fmtT(s) {{
+        const m  = Math.floor(s / 60);
+        const ss = Math.floor(s % 60).toString().padStart(2, "0");
+        return m + ":" + ss;
+      }}
+
+      function startPlay(from) {{
+        if (!buf) return;
+        if (ctx.state === "suspended") ctx.resume();
+
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;           // large buffer → smooth oscilloscope
+        analyser.smoothingTimeConstant = 0.6;
+
+        source = ctx.createBufferSource();
+        source.buffer = buf;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        source.start(0, from);
+        startedAt = ctx.currentTime - from;
+        playing = true;
+        playBtn.innerHTML = "&#9646;&#9646;";
+
+        source.onended = () => {{
+          if (playing) {{
+            playing  = false;
+            pausedAt = 0;
+            playBtn.innerHTML = "&#9654;";
+            seekBar.value = 0;
+            timeLabel.textContent = "0:00 / " + fmtT(buf.duration);
+            cancelAnimationFrame(animId);
+            drawIdle();
+          }}
+        }};
+        drawLoop();
+      }}
+
+      function stopPlay() {{
+        if (!source) return;
+        source.onended = null;
+        source.stop();
+        pausedAt = ctx.currentTime - startedAt;
+        playing  = false;
+        playBtn.innerHTML = "&#9654;";
+        cancelAnimationFrame(animId);
+      }}
+
+      playBtn.addEventListener("click", () => {{
+        if (!buf) return;
+        playing ? stopPlay() : startPlay(parseFloat(pausedAt) || 0);
+      }});
+
+      seekBar.addEventListener("input", () => {{
+        const t = parseFloat(seekBar.value);
+        if (playing) {{ stopPlay(); startPlay(t); }}
+        else {{ pausedAt = t; }}
+        timeLabel.textContent = fmtT(t) + " / " + fmtT(buf ? buf.duration : 0);
+      }});
+
+      // ── Oscilloscope drawing ──────────────────────────────────────────────
+      function drawLoop() {{
+        animId = requestAnimationFrame(drawLoop);
+
+        if (playing && buf) {{
+          const elapsed = ctx.currentTime - startedAt;
+          seekBar.value = Math.min(elapsed, buf.duration).toFixed(2);
+          timeLabel.textContent = fmtT(elapsed) + " / " + fmtT(buf.duration);
+        }}
+
+        const W = canvas.width, H = canvas.height;
+        const bufLen = analyser.fftSize;
+        const data   = new Float32Array(bufLen);   // -1.0 to +1.0
+        analyser.getFloatTimeDomainData(data);
+
+        cc.clearRect(0, 0, W, H);
+
+        // Grid lines: centre + amplitude guides at ±0.5
+        cc.strokeStyle = "#0f1e2e";
+        cc.lineWidth   = 1;
+        [[0.5], [0], [-0.5]].forEach(([norm]) => {{
+          const y = H / 2 - norm * (H / 2) * 0.88;
+          cc.beginPath(); cc.moveTo(0, y); cc.lineTo(W, y); cc.stroke();
+        }});
+
+        // Axis labels
+        cc.fillStyle  = "#253545";
+        cc.font       = "9px monospace";
+        cc.fillText("+1", 4, H * 0.5 - H * 0.44 - 2);
+        cc.fillText(" 0", 4, H / 2 + 4);
+        cc.fillText("-1", 4, H * 0.5 + H * 0.44 + 11);
+
+        // Waveform path
+        const grad = cc.createLinearGradient(0, 0, W, 0);
+        grad.addColorStop(0,    "#0070c0");
+        grad.addColorStop(0.35, "#00c0f0");
+        grad.addColorStop(0.65, "#00c0f0");
+        grad.addColorStop(1,    "#0070c0");
+
+        cc.beginPath();
+        cc.strokeStyle = grad;
+        cc.lineWidth   = 2;
+        cc.lineJoin    = "round";
+
+        const step = W / bufLen;
+        for (let i = 0; i < bufLen; i++) {{
+          const x = i * step;
+          const y = H / 2 - data[i] * (H / 2) * 0.88;
+          i === 0 ? cc.moveTo(x, y) : cc.lineTo(x, y);
+        }}
+        cc.stroke();
+
+        // Glow pass — same path, wider & transparent
+        cc.beginPath();
+        cc.strokeStyle = "rgba(0, 192, 240, 0.15)";
+        cc.lineWidth   = 6;
+        for (let i = 0; i < bufLen; i++) {{
+          const x = i * step;
+          const y = H / 2 - data[i] * (H / 2) * 0.88;
+          i === 0 ? cc.moveTo(x, y) : cc.lineTo(x, y);
+        }}
+        cc.stroke();
+      }}
+
+      function drawIdle() {{
+        const W = canvas.width, H = canvas.height;
+        cc.clearRect(0, 0, W, H);
+
+        // Grid
+        cc.strokeStyle = "#0f1e2e";
+        cc.lineWidth   = 1;
+        [[0.5], [0], [-0.5]].forEach(([norm]) => {{
+          const y = H / 2 - norm * (H / 2) * 0.88;
+          cc.beginPath(); cc.moveTo(0, y); cc.lineTo(W, y); cc.stroke();
+        }});
+
+        // Flat centre line
+        cc.beginPath();
+        cc.strokeStyle = "#1a3a50";
+        cc.lineWidth   = 2;
+        cc.moveTo(0, H / 2);
+        cc.lineTo(W, H / 2);
+        cc.stroke();
+
+        // Labels
+        cc.fillStyle = "#253545";
+        cc.font      = "9px monospace";
+        cc.fillText("+1", 4, H * 0.5 - H * 0.44 - 2);
+        cc.fillText(" 0", 4, H / 2 + 4);
+        cc.fillText("-1", 4, H * 0.5 + H * 0.44 + 11);
+      }}
+
+    }})();
+    </script>
+    """
+    st.components.v1.html(html, height=220)
+
+
 def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> None:
     st.markdown(
         '<p style="font-size:0.7rem;font-weight:700;letter-spacing:3px;color:#7ee787;'
@@ -884,26 +1224,17 @@ def render_result_section(audio_bytes: bytes, psmiles: str, is_mock: bool) -> No
     )
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
-    st.markdown('<p class="section-label">Waveform</p>', unsafe_allow_html=True)
-    with st.spinner("Rendering waveform…"):
-        fig = plot_waveform(audio_bytes)
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
+    st.markdown('<p class="section-label">Playback & Visualiser</p>', unsafe_allow_html=True)
+    render_audio_visualizer(audio_bytes)
 
-    st.markdown('<p class="section-label" style="margin-top:12px">Playback</p>', unsafe_allow_html=True)
     fmt = "audio/wav" if audio_bytes[:4] == b"RIFF" else "audio/mpeg"
-    audio_col, dl_col = st.columns([3, 1])
-    with audio_col:
-        st.audio(audio_bytes, format=fmt)
-    with dl_col:
-        ext = "wav" if fmt == "audio/wav" else "mp3"
-        st.download_button(
-            label="⬇ Download",
-            data=audio_bytes,
-            file_name=f"polymer_sound.{ext}",
-            mime=fmt,
-            use_container_width=True,
-        )
+    ext = "wav" if fmt == "audio/wav" else "mp3"
+    st.download_button(
+        label="⬇ Download audio",
+        data=audio_bytes,
+        file_name=f"polymer_sound.{ext}",
+        mime=fmt,
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander("Debug / details", expanded=False):
@@ -965,12 +1296,22 @@ def main() -> None:
             with st.spinner("Sonifying polymer…"):
                 features    = preprocess(st.session_state.psmiles)
                 audio_bytes = run_inference(model, features, st.session_state.psmiles)
-            st.session_state.audio_bytes = audio_bytes
-            st.session_state.predicted   = True
+            st.session_state.audio_bytes    = audio_bytes
+            st.session_state.predicted      = True
+            st.session_state.scroll_to_result = True
 
         # ── Results ──────────────────────────────────────────────────────────
         if st.session_state.predicted and st.session_state.audio_bytes is not None:
-            st.markdown('<div style="height:40px;background:#0a0d14"></div>', unsafe_allow_html=True)
+            st.markdown('<div id="section-result-top" style="height:40px;background:#0a0d14"></div>', unsafe_allow_html=True)
+            if st.session_state.scroll_to_result:
+                st.session_state.scroll_to_result = False
+                st.components.v1.html(
+                    "<script>"
+                    "window.parent.document.getElementById('section-result-top')"
+                    ".scrollIntoView({behavior:'smooth', block:'start'});"
+                    "</script>",
+                    height=0,
+                )
             render_result_section(
                 audio_bytes=st.session_state.audio_bytes,
                 psmiles=st.session_state.psmiles,
