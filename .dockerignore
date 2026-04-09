@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+.env
+.streamlit
+dist
+build
+*.egg-info

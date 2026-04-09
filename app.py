@@ -125,6 +125,10 @@ def _init_state() -> None:
         "rt_last_input": "",      # last raw input seen (to detect changes)
         # example loading
         "example_psmiles_for_input": "",
+        # whether the inline lab tool is expanded
+        "show_lab": False,
+        # flag to trigger scroll-to-top of lab section on first render after expand
+        "just_expanded": False,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -142,6 +146,8 @@ def _reset() -> None:
     st.session_state.rt_psmiles_str     = ""
     st.session_state.rt_last_input      = ""
     st.session_state.example_psmiles_for_input = ""
+    st.session_state.show_lab           = False
+    st.session_state.just_expanded      = False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -626,11 +632,11 @@ def render_about_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
-                     min-height:600px; display:flex; align-items:center; padding:60px 48px;">
+                     min-height:520px; display:flex; align-items:center; padding:60px 48px;">
           <div style="display:flex; gap:60px; align-items:center; width:100%;">
 
             <!-- Left: image placeholder -->
-            <div style="flex:1; min-width:0; height:380px;">
+            <div style="flex:1; min-width:0; height:340px;">
               <div class="img-box" style="height:100%;">
                 <div class="icon">🔬</div>
                 <div class="label">Add assets/about.png</div>
@@ -659,7 +665,7 @@ def render_about_panel() -> None:
           </div>
         </body>
         """,
-        height=620,
+        height=560,
         scrolling=False,
     )
 
@@ -667,11 +673,20 @@ def render_about_panel() -> None:
 def render_reverse_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
+        <style>
+          .burg-btn-disabled {
+            display: inline-block; margin-top: 24px;
+            padding: 11px 28px; border-radius: 8px;
+            background: #2a1a1e; color: #7a4a52;
+            border: 1px solid #4a2530; font-size: 0.9rem;
+            font-weight: 700; cursor: not-allowed; text-decoration: none;
+          }
+        </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
                      min-height:600px; display:flex; align-items:center; padding:60px 48px;">
           <div style="display:flex; gap:60px; align-items:center; width:100%;">
 
-            <!-- Left: text -->
+            <!-- Left: text + button -->
             <div style="flex:1; min-width:0;">
               <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
               <h2>Turning music<br>into chemistry</h2>
@@ -687,6 +702,7 @@ def render_reverse_panel() -> None:
               <p class="body">
                 This feature is under development. Stay tuned.
               </p>
+              <span class="burg-btn-disabled">🔬 Start Reverse Design → (coming soon)</span>
             </div>
 
             <!-- Right: image placeholder -->
@@ -700,7 +716,7 @@ def render_reverse_panel() -> None:
           </div>
         </body>
         """,
-        height=620,
+        height=640,
         scrolling=False,
     )
 
@@ -833,64 +849,57 @@ def main() -> None:
     # ── 2. Team ───────────────────────────────────────────────────────────────
     render_team_panel()
 
-    # ── 3. About ──────────────────────────────────────────────────────────────
+    # ── 3. About panel ────────────────────────────────────────────────────────
     render_about_panel()
-    render_reverse_panel()
 
-    # ── CTA button (bottom of about → jumps to lab) ───────────────────────────
-    st.markdown(
-        '<div style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);"'
-        ' id="cta-row">',
-        unsafe_allow_html=True,
-    )
-    _, col_btn, _ = st.columns([2, 3, 2])
-    with col_btn:
-        go_clicked = st.button(
-            "Start Sonifying  →",
-            type="primary",
-            use_container_width=True,
-            key="cta_go",
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
+    # ── Inline expand: show CTA button or the full lab tool ───────────────────
+    col_l, col_mid, col_r = st.columns([1, 2, 1])
+    with col_mid:
+        if not st.session_state.show_lab:
+            if st.button("🎵 Start Sonifying →", use_container_width=True, key="start_sonifying_btn"):
+                st.session_state.show_lab = True
+                st.session_state.just_expanded = True
+                st.rerun()
+        else:
+            if st.button("✕ Close Tool", use_container_width=True, key="close_lab_btn"):
+                st.session_state.show_lab = False
+                st.rerun()
+
+    if st.session_state.show_lab:
+        st.markdown('<div id="section-lab-top" style="height:32px;background:#0d1117"></div>', unsafe_allow_html=True)
+        # Scroll to the lab heading on first render after expand
+        if st.session_state.just_expanded:
+            st.session_state.just_expanded = False
+            st.components.v1.html(
+                "<script>"
+                "window.parent.document.getElementById('section-lab-top')"
+                ".scrollIntoView({behavior:'smooth', block:'start'});"
+                "</script>",
+                height=0,
+            )
+        predict_clicked = render_lab_section(model, is_mock)
+
+        # ── Run inference ────────────────────────────────────────────────────
+        if predict_clicked and st.session_state.psmiles:
+            with st.spinner("Sonifying polymer…"):
+                features    = preprocess(st.session_state.psmiles)
+                audio_bytes = run_inference(model, features, st.session_state.psmiles)
+            st.session_state.audio_bytes = audio_bytes
+            st.session_state.predicted   = True
+
+        # ── Results ──────────────────────────────────────────────────────────
+        if st.session_state.predicted and st.session_state.audio_bytes is not None:
+            st.markdown('<div style="height:40px;background:#0a0d14"></div>', unsafe_allow_html=True)
+            render_result_section(
+                audio_bytes=st.session_state.audio_bytes,
+                psmiles=st.session_state.psmiles,
+                is_mock=is_mock,
+            )
 
     st.markdown('<div style="height:60px;background:#0d1117"></div>', unsafe_allow_html=True)
 
-    # ── 4. Lab ────────────────────────────────────────────────────────────────
-    with st.container():
-        st.markdown('<div id="section-lab"></div>', unsafe_allow_html=True)
-        predict_clicked = render_lab_section(model, is_mock)
-
-    # scroll to lab when CTA is clicked
-    if go_clicked:
-        st.components.v1.html(
-            "<script>window.parent.document.getElementById('section-lab')"
-            ".scrollIntoView({behavior:'smooth',block:'start'});</script>",
-            height=0,
-        )
-
-    # ── Run inference ──────────────────────────────────────────────────────────
-    if predict_clicked and st.session_state.psmiles:
-        with st.spinner("Sonifying polymer…"):
-            features    = preprocess(st.session_state.psmiles)
-            audio_bytes = run_inference(model, features, st.session_state.psmiles)
-        st.session_state.audio_bytes = audio_bytes
-        st.session_state.predicted   = True
-
-    # ── 5. Results ────────────────────────────────────────────────────────────
-    if st.session_state.predicted and st.session_state.audio_bytes is not None:
-        st.markdown('<div style="height:40px;background:#0a0d14"></div>', unsafe_allow_html=True)
-        st.markdown('<div id="section-result"></div>', unsafe_allow_html=True)
-        render_result_section(
-            audio_bytes=st.session_state.audio_bytes,
-            psmiles=st.session_state.psmiles,
-            is_mock=is_mock,
-        )
-        if predict_clicked:
-            st.components.v1.html(
-                "<script>window.parent.document.getElementById('section-result')"
-                ".scrollIntoView({behavior:'smooth',block:'start'});</script>",
-                height=0,
-            )
+    # ── 4. Reverse panel ──────────────────────────────────────────────────────
+    render_reverse_panel()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
