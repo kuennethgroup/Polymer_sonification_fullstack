@@ -28,6 +28,78 @@ import numpy as np
 import streamlit as st
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Polymer2Audio model architecture (must be defined before unpickling)
+# ──────────────────────────────────────────────────────────────────────────────
+try:
+    import torch
+    import torch.nn as nn
+    import torchaudio
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+if TORCH_AVAILABLE:
+    class PositionalEncoding(nn.Module):
+        def __init__(self, d_model: int, max_len: int = 20000):
+            super().__init__()
+            pe = torch.zeros(max_len, d_model)
+            position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+            )
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+            self.register_buffer("pe", pe.unsqueeze(0))
+
+        def forward(self, x):
+            return x + self.pe[:, : x.size(1)]
+
+    class Polymer2Audio(nn.Module):
+        def __init__(
+            self,
+            fp_dim: int = 600,
+            vocab_size: int = 2000,
+            d_model: int = 512,
+            nhead: int = 8,
+            num_layers: int = 4,
+            dim_feedforward: int = 2048,
+            dropout: float = 0.1,
+        ):
+            super().__init__()
+            self.d_model = d_model
+            self.fp_proj = nn.Linear(fp_dim, d_model)
+            self.token_embedding = nn.Embedding(vocab_size, d_model)
+            self.pos_encoder = PositionalEncoding(d_model)
+            decoder_layer = nn.TransformerDecoderLayer(
+                d_model=d_model, nhead=nhead,
+                dim_feedforward=dim_feedforward, dropout=dropout,
+                batch_first=True,
+            )
+            self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
+            self.fc_out = nn.Linear(d_model, vocab_size)
+
+        def generate_square_subsequent_mask(self, sz, device):
+            mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+            return (
+                mask.float()
+                .masked_fill(mask == 0, float("-inf"))
+                .masked_fill(mask == 1, float(0.0))
+                .to(device)
+            )
+
+        def forward(self, polymer_fp, tgt_tokens, tgt_padding_mask=None):
+            device = tgt_tokens.device
+            memory = self.fp_proj(polymer_fp).unsqueeze(1)
+            tgt_emb = self.token_embedding(tgt_tokens) * math.sqrt(self.d_model)
+            tgt_emb = self.pos_encoder(tgt_emb)
+            tgt_mask = self.generate_square_subsequent_mask(tgt_tokens.size(1), device)
+            output = self.transformer_decoder(
+                tgt=tgt_emb, memory=memory,
+                tgt_mask=tgt_mask, tgt_key_padding_mask=tgt_padding_mask,
+            )
+            return self.fc_out(output)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Page configuration  (must be the first Streamlit call)
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -63,7 +135,7 @@ except ImportError:
 # ──────────────────────────────────────────────────────────────────────────────
 # Constants
 # ──────────────────────────────────────────────────────────────────────────────
-MODEL_PATH     = Path("model/model.pkl")
+MODEL_PATH     = Path("polymer_soni1_model.pkl")
 SAMPLE_RATE    = 22_050       # Hz — used for mock audio generation
 MOCK_DURATION  = 5.0          # seconds
 EXAMPLE_PSMILES = "[*]CC[*]"  # polyethylene repeat unit
@@ -183,15 +255,28 @@ def _reset() -> None:
 # Model loading
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="Loading model…")
+@st.cache_resource
 def load_model():
     """
-    Load the serialised ML model from MODEL_PATH.
-    Returns the model object, or the string "mock" when the file is absent.
+    Load Polymer2Audio from MODEL_PATH and EnCodec backend.
+    Returns (p2a_model, encodec_model) or "mock" if unavailable.
     """
-    if MODEL_PATH.exists():
+    if not MODEL_PATH.exists() or not TORCH_AVAILABLE:
+        return "mock"
+    try:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         with open(MODEL_PATH, "rb") as fh:
-            return pickle.load(fh)
-    return "mock"
+            p2a = pickle.load(fh)
+        p2a.to(device).eval()
+
+        from encodec import EncodecModel
+        enc = EncodecModel.encodec_model_24khz()
+        enc.set_target_bandwidth(6.0)
+        enc.to(device).eval()
+        return (p2a, enc)
+    except Exception as e:
+        st.warning(f"Model load failed ({e}), using mock audio.")
+        return "mock"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -268,20 +353,20 @@ def mol_to_svg(mol, width: int = 300, height: int = 300) -> Optional[str]:
 # Feature extraction / preprocessing
 # ──────────────────────────────────────────────────────────────────────────────
 def preprocess(psmiles: str) -> np.ndarray:
-    """
-    Convert a PSMILES string into a fixed-length feature vector.
-
-    TODO: Replace with real polymer featurisation, e.g.:
-          - Morgan fingerprints via RDKit
-          - Mordred descriptors
-          - A custom polymer descriptor library
-
-    Currently returns a seeded random vector so the rest of the pipeline
-    can be exercised end-to-end without a cheminformatics dependency.
-    """
-    # TODO: replace with real featurisation
-    rng = np.random.default_rng(abs(hash(psmiles)) % (2 ** 32))
-    return rng.random(128).astype(np.float32)
+    """600-bit Morgan fingerprint (radius=2) via RDKit."""
+    n_bits = 600
+    arr = np.zeros(n_bits, dtype=np.float32)
+    if RDKIT_AVAILABLE:
+        from rdkit.DataStructs.cDataStructs import ConvertToNumpyArray
+        smiles = psmiles.strip()
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            relaxed = smiles.replace("[*]", "[Xe]").replace("*", "[Xe]")
+            mol = Chem.MolFromSmiles(relaxed)
+        if mol is not None:
+            fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits)
+            ConvertToNumpyArray(fp, arr)
+    return arr
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -382,17 +467,53 @@ def generate_mock_audio(psmiles: str) -> bytes:
 # Inference
 # ──────────────────────────────────────────────────────────────────────────────
 def run_inference(model, features: np.ndarray, psmiles: str) -> bytes:
-    """
-    Run the ML model and return audio bytes.
-
-    TODO: Replace the stub call with the real model's API once trained.
-    """
+    """Run Polymer2Audio + EnCodec decode pipeline, returns WAV bytes."""
     if model == "mock":
         return generate_mock_audio(psmiles)
 
-    # TODO: adapt to real model call signature
-    audio_bytes: bytes = model.predict(features)  # type: ignore[union-attr]
-    return audio_bytes
+    p2a, enc = model
+    device = next(p2a.parameters()).device
+
+    fp_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0).to(device)
+
+    # Autoregressive generation
+    generated = [1]
+    with torch.no_grad():
+        for _ in range(500):
+            tgt = torch.tensor(generated, dtype=torch.long).unsqueeze(0).to(device)
+            logits = p2a(fp_tensor, tgt)
+            next_token = torch.argmax(logits[0, -1, :]).item()
+            if next_token == 0:
+                break
+            generated.append(next_token)
+
+    # Decode tokens → WAV via EnCodec
+    pure_tokens = generated[1:]
+    converted = [max(0, min(1023, t - 1)) for t in pure_tokens]
+
+    CODEBOOKS = 8
+    if len(converted) % CODEBOOKS != 0:
+        converted = converted[: (len(converted) // CODEBOOKS) * CODEBOOKS]
+
+    if len(converted) == 0:
+        return generate_mock_audio(psmiles)
+
+    num_steps = len(converted) // CODEBOOKS
+    code_tensor = (
+        torch.tensor(converted, dtype=torch.int64)
+        .to(device)
+        .view(num_steps, CODEBOOKS)
+        .transpose(0, 1)
+        .unsqueeze(0)
+        .contiguous()
+    )
+
+    with torch.no_grad():
+        audio = enc.decode([(code_tensor, None)]).detach().cpu()
+
+    buf = io.BytesIO()
+    torchaudio.save(buf, audio.squeeze(0), sample_rate=enc.sample_rate, format="wav")
+    return buf.getvalue()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
