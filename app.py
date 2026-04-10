@@ -650,16 +650,16 @@ def render_hero_panel() -> None:
 
 # TODO: Replace placeholder entries with real names, roles, and image paths.
 TEAM_MEMBERS: list[dict] = [
-    {"name": "Member 1", "role": "Role / Affiliation"},
-    {"name": "Member 2", "role": "Role / Affiliation"},
-    {"name": "Member 3", "role": "Role / Affiliation"},
-    {"name": "Member 4", "role": "Role / Affiliation"},
-    {"name": "Member 5", "role": "Role / Affiliation"},
-    {"name": "Member 6", "role": "Role / Affiliation"},
-    {"name": "Member 7", "role": "Role / Affiliation"},
-    {"name": "Member 8", "role": "Role / Affiliation"},
-    {"name": "Member 9", "role": "Role / Affiliation"},
-    {"name": "Member 10", "role": "Role / Affiliation"},
+    {"name": "Chris",   "role": "Role / Affiliation", "img": "images/chris.jpeg"},
+    {"name": "Mashid",  "role": "Role / Affiliation", "img": "images/mashid.jpeg"},
+    {"name": "Ibra",    "role": "Role / Affiliation", "img": "images/ibra.jpeg"},
+    {"name": "Henri",   "role": "Role / Affiliation", "img": "images/henri.jpeg"},
+    {"name": "Kaushik", "role": "Role / Affiliation", "img": "images/kaushik.jpeg"},
+    {"name": "Krishna", "role": "Role / Affiliation", "img": "images/krishna.jpeg"},
+    {"name": "Lukas",   "role": "Role / Affiliation", "img": "images/lukas.jpeg"},
+    {"name": "Niklas",  "role": "Role / Affiliation", "img": "images/niklas.jpeg"},
+    {"name": "Rayan",   "role": "Role / Affiliation", "img": "images/rayan.jpeg"},
+    {"name": "Subhash", "role": "Role / Affiliation", "img": "images/subhash.jpeg"},
 ]
 
 
