@@ -676,7 +676,7 @@ def _member_card(name: str, role: str, img_path: Optional[str] = None) -> str:
 
     return f"""
     <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-      <div style="width:100%;aspect-ratio:4/5;">{photo}</div>
+      <div style="width:100%;aspect-ratio:1;max-height:140px;overflow:hidden;border-radius:12px;">{photo}</div>
       <div style="text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
@@ -704,13 +704,13 @@ def render_team_panel() -> None:
           </div>
 
           <!-- 5-column grid, 2 rows = 10 slots -->
-          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:24px;">
+          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:20px;">
             {cards_html}
           </div>
 
         </body>
         """,
-        height=940,
+        height=780,
         scrolling=False,
     )
 
