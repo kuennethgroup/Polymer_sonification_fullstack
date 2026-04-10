@@ -1326,15 +1326,26 @@ def main() -> None:
     # ── Inline expand: reverse design tool ───────────────────────────────────
     col_l2, col_mid2, col_r2 = st.columns([1, 2, 1])
     with col_mid2:
-        if not st.session_state.show_reverse_lab:
-            if st.button("🔬 Try Reverse Design →", use_container_width=True, key="start_reverse_btn"):
-                st.session_state.show_reverse_lab    = True
-                st.session_state.just_expanded_reverse = True
-                st.rerun()
-        else:
-            if st.button("✕ Close Reverse Tool", use_container_width=True, key="close_reverse_btn"):
-                st.session_state.show_reverse_lab = False
-                st.rerun()
+        st.markdown(
+            """
+            <div style="
+                width:100%; padding:10px 16px;
+                border-radius:8px;
+                border: 1px solid #2a2a3a;
+                background: #13131f;
+                color: #44445a;
+                font-size:0.88rem; font-weight:600;
+                text-align:center;
+                cursor:not-allowed;
+                user-select:none;
+                opacity:0.55;
+                letter-spacing:0.3px;
+            ">
+                🔒 Try Reverse Design →
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     if st.session_state.show_reverse_lab:
         st.markdown('<div id="section-reverse-top" style="height:32px;background:#0d1117"></div>', unsafe_allow_html=True)
