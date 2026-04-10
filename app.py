@@ -670,13 +670,13 @@ def _member_card(name: str, role: str, img_path: Optional[str] = None) -> str:
         with open(img_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
         ext = Path(img_path).suffix.lstrip(".")
-        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;border-radius:12px;" />'
+        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;display:block;border-radius:12px;" />'
     else:
-        photo = '<div class="img-box" style="height:100%;border-radius:12px;"><div class="icon" style="font-size:2rem;">👤</div></div>'
+        photo = '<div class="img-box" style="height:160px;border-radius:12px;"><div class="icon" style="font-size:2rem;">👤</div></div>'
 
     return f"""
-    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-      <div style="width:100%;aspect-ratio:1;max-height:140px;overflow:hidden;border-radius:12px;">{photo}</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div style="width:100%;border-radius:12px;overflow:hidden;">{photo}</div>
       <div style="text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
@@ -710,7 +710,7 @@ def render_team_panel() -> None:
 
         </body>
         """,
-        height=780,
+        height=1100,
         scrolling=False,
     )
 
