@@ -103,6 +103,25 @@ st.markdown(
         border: 1px solid #1f6feb; border-radius: 12px;
         padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
     }
+
+    /* ── Primary action buttons (Sonify, Start Sonifying) ── */
+    div[data-testid="stButton"] > button[kind="secondary"],
+    div[data-testid="stButton"] > button {
+        background: #2d1b69 !important;
+        color: #d4b8ff !important;
+        border: 1px solid #5a3ea0 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: background 0.15s, border-color 0.15s !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background: #3d2880 !important;
+        border-color: #7c5cc4 !important;
+        color: #e8d8ff !important;
+    }
+    div[data-testid="stButton"] > button:active {
+        background: #1e1047 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1331,14 +1350,14 @@ def main() -> None:
             <div style="
                 width:100%; padding:10px 16px;
                 border-radius:8px;
-                border: 1px solid #2a2a3a;
-                background: #13131f;
-                color: #44445a;
+                border: 1px solid #3a2560;
+                background: #1a0f35;
+                color: #6a4a9a;
                 font-size:0.88rem; font-weight:600;
                 text-align:center;
                 cursor:not-allowed;
                 user-select:none;
-                opacity:0.55;
+                opacity:0.5;
                 letter-spacing:0.3px;
             ">
                 🔒 Try Reverse Design →
