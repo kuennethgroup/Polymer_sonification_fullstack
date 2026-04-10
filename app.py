@@ -670,13 +670,13 @@ def _member_card(name: str, role: str, img_path: Optional[str] = None) -> str:
         with open(img_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
         ext = Path(img_path).suffix.lstrip(".")
-        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />'
+        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;border-radius:12px;" />'
     else:
         photo = '<div class="img-box" style="height:100%;border-radius:12px;"><div class="icon" style="font-size:2rem;">👤</div></div>'
 
     return f"""
     <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-      <div style="width:100%;aspect-ratio:1;">{photo}</div>
+      <div style="width:100%;aspect-ratio:4/5;">{photo}</div>
       <div style="text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
