@@ -2,7 +2,14 @@
 streamlit>=1.35.0
 
 # Numerics / plotting
-numpy>=1.24.0
+torch>=2.3.0
+torchaudio>=2.3.0
+encodec>=0.1.1
+numpy>=1.26.0
+pandas>=2.2.0
+rdkit>=2023.9.5
+tqdm>=4.66.0
+soundfile>=0.12.1
 matplotlib>=3.7.0
 
 # Ketcher molecular drawing component
