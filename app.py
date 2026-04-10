@@ -619,7 +619,7 @@ def render_hero_panel() -> None:
             <!-- Left: text -->
             <div style="flex:1; min-width:0;">
               <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
-              <h1>What if<br>polymers could<br><em>speak</em>?</h1>
+              <h1>What if<br>polymers could<br><em>sing</em>?</h1>
               <p class="body">
                 Every polymer carries a unique sequence of atoms in its repeat unit —
                 a molecular fingerprint that defines its properties.
