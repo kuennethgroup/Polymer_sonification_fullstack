@@ -1297,17 +1297,6 @@ def main() -> None:
                 st.rerun()
 
     if st.session_state.show_lab:
-        st.markdown('<div id="section-lab-top" style="height:32px;background:#0d1117"></div>', unsafe_allow_html=True)
-        # Scroll to the lab heading on first render after expand
-        if st.session_state.just_expanded:
-            st.session_state.just_expanded = False
-            st.components.v1.html(
-                "<script>"
-                "window.parent.document.getElementById('section-lab-top')"
-                ".scrollIntoView({behavior:'smooth', block:'start'});"
-                "</script>",
-                height=0,
-            )
         predict_clicked = render_lab_section(model, is_mock)
 
         # ── Run inference ────────────────────────────────────────────────────
