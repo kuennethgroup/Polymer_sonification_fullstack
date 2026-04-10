@@ -663,38 +663,95 @@ TEAM_MEMBERS: list[dict] = [
 ]
 
 
-def _member_card(name: str, role: str, img_path: Optional[str] = None) -> str:
-    """Return the HTML snippet for one team member card."""
-    import base64
-    if img_path and Path(img_path).exists():
-        with open(img_path, "rb") as f:
-            b64 = base64.b64encode(f.read()).decode()
-        ext = Path(img_path).suffix.lstrip(".")
-        photo = f'<img src="data:image/{ext};base64,{b64}" style="width:100%;display:block;border-radius:12px;" />'
-    else:
-        photo = '<div class="img-box" style="height:160px;border-radius:12px;"><div class="icon" style="font-size:2rem;">👤</div></div>'
-
+def _member_card(name: str, role: str, img_b64: str, ext: str, idx: int) -> str:
+    """Return the HTML for a flip card. Front = violet back, Back = photo + name."""
+    delay = idx * 120   # stagger in ms
+    photo = f'<img src="data:image/{ext};base64,{img_b64}" style="width:100%;display:block;" />'
     return f"""
-    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-      <div style="width:100%;border-radius:12px;overflow:hidden;">{photo}</div>
-      <div style="text-align:center;">
-        <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
-        <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
+    <div class="flip-card" style="animation-delay:{delay}ms;">
+      <div class="flip-inner">
+        <!-- Front: decorative back side shown before flip -->
+        <div class="flip-front">
+          <div style="font-size:2.2rem;opacity:0.4;">👤</div>
+        </div>
+        <!-- Back: photo + name revealed after flip -->
+        <div class="flip-back">
+          <div style="width:100%;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
+          <div style="padding:8px 6px 10px;text-align:center;">
+            <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
+            <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
+          </div>
+        </div>
       </div>
     </div>
     """
 
 
 def render_team_panel() -> None:
-    cards_html = "".join(
-        _member_card(m["name"], m["role"], m.get("img"))
-        for m in TEAM_MEMBERS
-    )
+    import base64
+    import random
+
+    members = TEAM_MEMBERS.copy()
+    random.shuffle(members)
+
+    cards_html = ""
+    for idx, m in enumerate(members):
+        img_path = m.get("img", "")
+        if img_path and Path(img_path).exists():
+            with open(img_path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+            ext = Path(img_path).suffix.lstrip(".")
+        else:
+            b64, ext = "", "jpeg"
+        cards_html += _member_card(m["name"], m["role"], b64, ext, idx)
+
     st.components.v1.html(
         _PANEL_STYLE + f"""
+        <style>
+          @keyframes cardReveal {{
+            from {{ opacity:0; transform: rotateY(180deg) scale(0.9); }}
+            to   {{ opacity:1; transform: rotateY(0deg)   scale(1);   }}
+          }}
+
+          .flip-card {{
+            perspective: 900px;
+            border-radius: 14px;
+            opacity: 0;
+            animation: cardReveal 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+          }}
+
+          .flip-inner {{
+            position: relative;
+            transform-style: preserve-3d;
+            border-radius: 14px;
+            background: #161b2e;
+            border: 1px solid #2d1b69;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+          }}
+          .flip-inner:hover {{
+            box-shadow: 0 0 18px rgba(120, 80, 220, 0.35);
+            border-color: #5a3ea0;
+          }}
+
+          .flip-front, .flip-back {{
+            border-radius: 14px;
+          }}
+          .flip-front {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 80px;
+            background: linear-gradient(135deg, #1a0f35 0%, #2d1b69 100%);
+          }}
+          .flip-back {{
+            width: 100%;
+          }}
+        </style>
+
         <body style="background:#0d1117; padding:60px 48px; min-height:700px;">
 
-          <!-- Header -->
           <div style="text-align:center; margin-bottom:48px;">
             <p class="eyebrow" style="color:#00c0f0;">The People</p>
             <h2>Meet the Team</h2>
@@ -703,7 +760,6 @@ def render_team_panel() -> None:
             </p>
           </div>
 
-          <!-- 5-column grid, 2 rows = 10 slots -->
           <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:20px;">
             {cards_html}
           </div>
