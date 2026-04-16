@@ -806,7 +806,7 @@ def _member_card(name: str, role: str, img_b64: str, ext: str, idx: int) -> str:
                 overflow:hidden;opacity:0;
                 animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) {delay}ms forwards;
                 transition:box-shadow 0.2s;">
-      <div style="width:100%;height:240px;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
+      <div style="width:100%;aspect-ratio:1;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
       <div style="padding:8px 6px 10px;text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
@@ -841,13 +841,8 @@ def render_team_panel() -> None:
             b64 = ""
         cards_html += _member_card(m["name"], m["role"], b64, "jpeg", idx)
 
-    # Desktop height (5 cols) — JS expands for mobile if needed
-    card_h   = 240 + 52
-    gap      = 20
-    header_h = 160
-    padding  = 100
-    n_rows   = math.ceil(len(members) / 5)
-    panel_h  = header_h + n_rows * card_h + (n_rows - 1) * gap + padding
+    # Rough initial height — JS always corrects to exact content height
+    panel_h = 800
 
     st.components.v1.html(
         _PANEL_STYLE + f"""
@@ -860,9 +855,6 @@ def render_team_panel() -> None:
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 20px;
-          }}
-          @media (max-width: 600px) {{
-            .team-grid {{ grid-template-columns: repeat(2, 1fr); gap: 12px; }}
           }}
         </style>
 
@@ -878,19 +870,21 @@ def render_team_panel() -> None:
             {cards_html}
           </div>
           <script>
-            function expandIfNeeded() {{
+            function fitFrame() {{
               try {{
                 const h = document.body.scrollHeight + 20;
-                const frame = window.frameElement;
-                if (frame && h > frame.offsetHeight) {{
-                  frame.style.height = h + 'px';
+                const f = window.frameElement;
+                if (f) {{
+                  f.style.height = h + 'px';
+                  f.style.minHeight = h + 'px';
                 }}
               }} catch(e) {{}}
             }}
-            expandIfNeeded();
-            window.addEventListener('load', expandIfNeeded);
-            setTimeout(expandIfNeeded, 300);
-            new ResizeObserver(expandIfNeeded).observe(document.body);
+            fitFrame();
+            window.addEventListener('load', fitFrame);
+            setTimeout(fitFrame, 100);
+            setTimeout(fitFrame, 500);
+            new ResizeObserver(fitFrame).observe(document.body);
           </script>
         </body>
         """,
