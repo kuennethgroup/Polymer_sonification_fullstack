@@ -835,6 +835,14 @@ def render_team_panel() -> None:
             b64, ext = "", "jpeg"
         cards_html += _member_card(m["name"], m["role"], b64, ext, idx)
 
+    n_cols   = 5
+    n_rows   = math.ceil(len(members) / n_cols)
+    card_h   = 240 + 52   # photo height + name/role/padding area
+    gap      = 20
+    header_h = 160        # eyebrow + h2 + body text
+    padding  = 100        # top + bottom body padding
+    panel_h  = header_h + n_rows * card_h + (n_rows - 1) * gap + padding
+
     st.components.v1.html(
         _PANEL_STYLE + f"""
         <style>
@@ -863,19 +871,9 @@ def render_team_panel() -> None:
           <div class="team-grid">
             {cards_html}
           </div>
-          <script>
-            function reportHeight() {{
-              const h = document.documentElement.scrollHeight;
-              window.parent.postMessage({{type:'streamlit:setFrameHeight', height: h}}, '*');
-            }}
-            // fire immediately, after fonts/images settle, and on any resize
-            reportHeight();
-            window.addEventListener('load', reportHeight);
-            new ResizeObserver(reportHeight).observe(document.body);
-          </script>
         </body>
         """,
-        height=1300,
+        height=panel_h,
         scrolling=False,
     )
 
