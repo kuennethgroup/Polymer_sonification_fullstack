@@ -180,10 +180,26 @@ st.markdown(
         padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
     }
 
-    /* ── Mobile: reduce block padding ── */
+    /* ── Responsive: stack Streamlit columns on small screens ── */
     @media (max-width: 640px) {
         .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
         section[data-testid="stSidebar"] { display: none; }
+        /* Stack all st.columns vertically */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+        /* Shrink fonts */
+        h1, h2, h3 { font-size: clamp(1.2rem, 5vw, 2rem) !important; }
+        p, label, .stMarkdown { font-size: clamp(0.8rem, 3vw, 1rem) !important; }
+        /* Full-width buttons */
+        div[data-testid="stButton"] > button { width: 100% !important; }
+        /* Result card padding */
+        .result-card { padding: 14px 14px !important; }
     }
 
     /* ── Primary action buttons (Sonify, Start Sonifying) ── */
@@ -728,12 +744,18 @@ _PANEL_STYLE = """
                     text-transform: uppercase; opacity: 0.6; }
   /* ── Responsive helpers ── */
   .row {
-    display: flex; gap: 60px; align-items: center; width: 100%;
+    display: flex;
+    gap: clamp(20px, 4vw, 60px);
+    align-items: center;
+    width: 100%;
+    flex-wrap: wrap;
   }
-  .row > * { flex: 1; min-width: 0; }
+  .row > * { flex: 1; min-width: min(100%, 280px); }
+  .row-reverse { flex-direction: row-reverse; }
   @media (max-width: 600px) {
-    .row { flex-direction: column; gap: 28px; }
-    .row-reverse { flex-direction: column-reverse !important; }
+    .row { flex-direction: column !important; gap: 24px; }
+    .row-reverse { flex-direction: column !important; }
+    .row > * { min-width: 100%; }
   }
 </style>
 """
@@ -853,7 +875,7 @@ def render_team_panel() -> None:
           }}
           .team-grid {{
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 20px;
           }}
         </style>
