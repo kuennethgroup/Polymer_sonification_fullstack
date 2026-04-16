@@ -863,9 +863,6 @@ def render_team_panel() -> None:
             b64 = ""
         cards_html += _member_card(m["name"], m["role"], b64, "jpeg", idx)
 
-    # Rough initial height — JS always corrects to exact content height
-    panel_h = 800
-
     st.components.v1.html(
         _PANEL_STYLE + f"""
         <style>
@@ -891,27 +888,10 @@ def render_team_panel() -> None:
           <div class="team-grid">
             {cards_html}
           </div>
-          <script>
-            function fitFrame() {{
-              try {{
-                const h = document.body.scrollHeight + 20;
-                const f = window.frameElement;
-                if (f) {{
-                  f.style.height = h + 'px';
-                  f.style.minHeight = h + 'px';
-                }}
-              }} catch(e) {{}}
-            }}
-            fitFrame();
-            window.addEventListener('load', fitFrame);
-            setTimeout(fitFrame, 100);
-            setTimeout(fitFrame, 500);
-            new ResizeObserver(fitFrame).observe(document.body);
-          </script>
         </body>
         """,
-        height=panel_h,
-        scrolling=False,
+        height=700,
+        scrolling=True,
     )
 
 
