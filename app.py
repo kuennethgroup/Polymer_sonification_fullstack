@@ -149,7 +149,12 @@ st.markdown(
     """
     <style>
     html, body, .stApp { background: #0a0d14; color: #c9d1d9; }
-    .block-container { padding-top: 0 !important; }
+    .block-container {
+        padding-top: 0 !important;
+        max-width: 1100px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
 
     .divider { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
     .section-label {
@@ -722,6 +727,12 @@ _PANEL_STYLE = """
   .img-box .icon { font-size: 2.8rem; opacity: 0.5; }
   .img-box .label { font-size: 0.7rem; letter-spacing: 2px;
                     text-transform: uppercase; opacity: 0.6; }
+  /* ── Max-width page wrapper ── */
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+  }
   /* ── Responsive helpers ── */
   .row {
     display: flex; gap: 60px; align-items: center; width: 100%;
@@ -750,27 +761,26 @@ def render_hero_panel() -> None:
 
     st.components.v1.html(
         _PANEL_STYLE + f"""
-        <style>
-          body {{ padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 48px); }}
-        </style>
         <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
-                     display:flex; align-items:center; min-height:0;">
-          <div class="row">
-            <div>
-              <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
-              <h1>What if<br>polymers could<br><em>sing</em>?</h1>
-              <p class="body">
-                Every polymer carries a unique sequence of atoms in its repeat unit —
-                a molecular fingerprint that defines its properties.
-                We turn that fingerprint into sound.
-              </p>
-              <p class="body">
-                Scroll down to meet the team, learn the story,
-                and then draw your own polymer to hear it.
-              </p>
-            </div>
-            <div style="max-height:400px;">
-              {_hero_html}
+                     padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
+          <div class="page">
+            <div class="row">
+              <div>
+                <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
+                <h1>What if<br>polymers could<br><em>sing</em>?</h1>
+                <p class="body">
+                  Every polymer carries a unique sequence of atoms in its repeat unit —
+                  a molecular fingerprint that defines its properties.
+                  We turn that fingerprint into sound.
+                </p>
+                <p class="body">
+                  Scroll down to meet the team, learn the story,
+                  and then draw your own polymer to hear it.
+                </p>
+              </div>
+              <div style="overflow:hidden;border-radius:16px;max-height:400px;">
+                {_hero_html}
+              </div>
             </div>
           </div>
         </body>
@@ -801,13 +811,13 @@ TEAM_MEMBERS: list[dict] = [
 
 def _member_card(name: str, role: str, img_b64: str, ext: str, idx: int) -> str:
     delay = idx * 80
-    photo = f'<img src="data:image/{ext};base64,{img_b64}" style="width:100%;display:block;" />'
+    photo = f'<img src="data:image/{ext};base64,{img_b64}" style="width:100%;height:100%;object-fit:cover;display:block;" />'
     return f"""
     <div style="border-radius:14px;background:#161b2e;border:1px solid #2d1b69;
                 overflow:hidden;opacity:0;
                 animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) {delay}ms forwards;
                 transition:box-shadow 0.2s;">
-      <div style="width:100%;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
+      <div style="width:100%;height:180px;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
       <div style="padding:8px 6px 10px;text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
@@ -852,19 +862,18 @@ def render_team_panel() -> None:
         </style>
 
         <body style="background:#0d1117; padding:clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
-
-          <div style="text-align:center; margin-bottom:clamp(24px,4vw,48px);">
-            <p class="eyebrow" style="color:#00c0f0;">The People</p>
-            <h2>Meet the Team</h2>
-            <p class="body" style="max-width:520px;margin:10px auto 0;">
-              The researchers and engineers behind Polymer Sonification.
-            </p>
+          <div class="page">
+            <div style="text-align:center; margin-bottom:clamp(24px,4vw,48px);">
+              <p class="eyebrow" style="color:#00c0f0;">The People</p>
+              <h2>Meet the Team</h2>
+              <p class="body" style="max-width:520px;margin:10px auto 0;">
+                The researchers and engineers behind Polymer Sonification.
+              </p>
+            </div>
+            <div class="team-grid">
+              {cards_html}
+            </div>
           </div>
-
-          <div class="team-grid">
-            {cards_html}
-          </div>
-
         </body>
         """,
         height=1100,
@@ -878,34 +887,33 @@ def render_team_panel() -> None:
 def render_about_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
-        <style>
-          body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
-        </style>
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
-                     display:flex; align-items:center; min-height:0;">
-          <div class="row row-reverse">
-            <div style="min-height:200px;">
-              <div class="img-box" style="height:280px;">
-                <div class="icon">🔬</div>
-                <div class="label">Add assets/about.png</div>
+                     padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
+          <div class="page">
+            <div class="row row-reverse">
+              <div>
+                <div class="img-box" style="height:280px;">
+                  <div class="icon">🔬</div>
+                  <div class="label">Add assets/about.png</div>
+                </div>
               </div>
-            </div>
-            <div>
-              <p class="eyebrow" style="color:#7ee787;">The Project</p>
-              <h2>Turning chemistry<br>into music</h2>
-              <p class="body">
-                We started this project with a curiosity: if every polymer has a unique
-                molecular structure, could that structure produce a unique sound?
-              </p>
-              <p class="body">
-                Using a pre-trained machine-learning model on polymer data, we map each
-                repeat unit's atoms to musical notes across two octaves — heavier atoms
-                play lower notes, lighter atoms play higher ones.
-              </p>
-              <p class="body">
-                The result is a sonic fingerprint: an audio identity that is as unique
-                to a polymer as its SMILES string.
-              </p>
+              <div>
+                <p class="eyebrow" style="color:#7ee787;">The Project</p>
+                <h2>Turning chemistry<br>into music</h2>
+                <p class="body">
+                  We started this project with a curiosity: if every polymer has a unique
+                  molecular structure, could that structure produce a unique sound?
+                </p>
+                <p class="body">
+                  Using a pre-trained machine-learning model on polymer data, we map each
+                  repeat unit's atoms to musical notes across two octaves — heavier atoms
+                  play lower notes, lighter atoms play higher ones.
+                </p>
+                <p class="body">
+                  The result is a sonic fingerprint: an audio identity that is as unique
+                  to a polymer as its SMILES string.
+                </p>
+              </div>
             </div>
           </div>
         </body>
@@ -918,32 +926,31 @@ def render_about_panel() -> None:
 def render_reverse_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
-        <style>
-          body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
-        </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
-                     display:flex; align-items:center; min-height:0;">
-          <div class="row">
-            <div>
-              <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
-              <h2>Turning music<br>into chemistry</h2>
-              <p class="body">
-                The inverse challenge: can a melody describe a polymer?
-                Given an audio fingerprint, we aim to reconstruct the molecular
-                structure that would have produced it.
-              </p>
-              <p class="body">
-                By reversing the sonification pipeline we open a new design space —
-                composing a sound and letting the model propose a polymer that matches it.
-              </p>
-              <p class="body">
-                This feature is under development. Upload an audio file below to try it.
-              </p>
-            </div>
-            <div style="min-height:200px;">
-              <div class="img-box" style="height:280px;border-color:#d2a8ff44;">
-                <div class="icon">🎵</div>
-                <div class="label">Add assets/reverse.png</div>
+                     padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
+          <div class="page">
+            <div class="row">
+              <div>
+                <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
+                <h2>Turning music<br>into chemistry</h2>
+                <p class="body">
+                  The inverse challenge: can a melody describe a polymer?
+                  Given an audio fingerprint, we aim to reconstruct the molecular
+                  structure that would have produced it.
+                </p>
+                <p class="body">
+                  By reversing the sonification pipeline we open a new design space —
+                  composing a sound and letting the model propose a polymer that matches it.
+                </p>
+                <p class="body">
+                  This feature is under development. Upload an audio file below to try it.
+                </p>
+              </div>
+              <div>
+                <div class="img-box" style="height:280px;border-color:#d2a8ff44;">
+                  <div class="icon">🎵</div>
+                  <div class="label">Add assets/reverse.png</div>
+                </div>
               </div>
             </div>
           </div>
