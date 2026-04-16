@@ -770,7 +770,7 @@ def render_hero_panel() -> None:
                 and then draw your own polymer to hear it.
               </p>
             </div>
-            <div style="overflow:hidden;border-radius:16px;max-height:400px;">
+            <div style="overflow:hidden;border-radius:16px;">
               {_hero_html}
             </div>
           </div>
@@ -808,7 +808,7 @@ def _member_card(name: str, role: str, img_b64: str, ext: str, idx: int) -> str:
                 overflow:hidden;opacity:0;
                 animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) {delay}ms forwards;
                 transition:box-shadow 0.2s;">
-      <div style="width:100%;height:180px;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
+      <div style="width:100%;height:240px;overflow:hidden;border-radius:12px 12px 0 0;">{photo}</div>
       <div style="padding:8px 6px 10px;text-align:center;">
         <div style="font-size:0.82rem;font-weight:700;color:#e6edf3;">{name}</div>
         <div style="font-size:0.72rem;color:#8b95a5;margin-top:2px;">{role}</div>
@@ -864,14 +864,18 @@ def render_team_panel() -> None:
             {cards_html}
           </div>
           <script>
-            window.addEventListener('load', function() {{
-              const h = document.body.scrollHeight;
+            function reportHeight() {{
+              const h = document.documentElement.scrollHeight;
               window.parent.postMessage({{type:'streamlit:setFrameHeight', height: h}}, '*');
-            }});
+            }}
+            // fire immediately, after fonts/images settle, and on any resize
+            reportHeight();
+            window.addEventListener('load', reportHeight);
+            new ResizeObserver(reportHeight).observe(document.body);
           </script>
         </body>
         """,
-        height=1100,
+        height=1300,
         scrolling=False,
     )
 
