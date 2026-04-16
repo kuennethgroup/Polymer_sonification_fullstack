@@ -176,6 +176,12 @@ st.markdown(
         padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
     }
 
+    /* ── Mobile: reduce block padding ── */
+    @media (max-width: 640px) {
+        .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+        section[data-testid="stSidebar"] { display: none; }
+    }
+
     /* ── Primary action buttons (Sonify, Start Sonifying) ── */
     div[data-testid="stButton"] > button[kind="secondary"],
     div[data-testid="stButton"] > button {
@@ -687,6 +693,7 @@ def render_input_section() -> str:
 # Shared HTML style block (injected into every st.components.v1.html panel)
 # ──────────────────────────────────────────────────────────────────────────────
 _PANEL_STYLE = """
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -697,12 +704,13 @@ _PANEL_STYLE = """
     font-size: 0.68rem; font-weight: 700; letter-spacing: 3px;
     text-transform: uppercase; margin-bottom: 14px;
   }
-  h1 { font-size: 3rem; font-weight: 800; line-height: 1.1;
+  h1 { font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 800; line-height: 1.1;
        color: #e6edf3; margin-bottom: 22px; letter-spacing: -0.5px; }
   h1 em { color: #00c0f0; font-style: normal; }
-  h2 { font-size: 2rem; font-weight: 800; line-height: 1.15;
+  h2 { font-size: clamp(1.3rem, 4vw, 2rem); font-weight: 800; line-height: 1.15;
        color: #e6edf3; margin-bottom: 18px; letter-spacing: -0.3px; }
-  p.body { font-size: 1rem; line-height: 1.85; color: #8b95a5; margin-bottom: 14px; }
+  p.body { font-size: clamp(0.85rem, 2.5vw, 1rem); line-height: 1.85;
+           color: #8b95a5; margin-bottom: 14px; }
   .img-box {
     width: 100%; height: 100%;
     border: 2px dashed #1f6feb55; border-radius: 14px;
@@ -714,6 +722,15 @@ _PANEL_STYLE = """
   .img-box .icon { font-size: 2.8rem; opacity: 0.5; }
   .img-box .label { font-size: 0.7rem; letter-spacing: 2px;
                     text-transform: uppercase; opacity: 0.6; }
+  /* ── Responsive helpers ── */
+  .row {
+    display: flex; gap: 60px; align-items: center; width: 100%;
+  }
+  .row > * { flex: 1; min-width: 0; }
+  @media (max-width: 600px) {
+    .row { flex-direction: column; gap: 28px; }
+    .row-reverse { flex-direction: column-reverse !important; }
+  }
 </style>
 """
 
@@ -733,12 +750,13 @@ def render_hero_panel() -> None:
 
     st.components.v1.html(
         _PANEL_STYLE + f"""
+        <style>
+          body {{ padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 48px); }}
+        </style>
         <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
-                     min-height:680px; display:flex; align-items:center; padding:60px 48px;">
-          <div style="display:flex; gap:60px; align-items:center; width:100%;">
-
-            <!-- Left: text -->
-            <div style="flex:1; min-width:0;">
+                     display:flex; align-items:center; min-height:100vh;">
+          <div class="row">
+            <div>
               <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
               <h1>What if<br>polymers could<br><em>sing</em>?</h1>
               <p class="body">
@@ -751,17 +769,14 @@ def render_hero_panel() -> None:
                 and then draw your own polymer to hear it.
               </p>
             </div>
-
-            <!-- Right: group image -->
-            <div style="flex:1; min-width:0; height:400px;">
+            <div style="max-height:400px;">
               {_hero_html}
             </div>
-
           </div>
         </body>
         """,
         height=680,
-        scrolling=False,
+        scrolling=True,
     )
 
 
@@ -828,9 +843,9 @@ def render_team_panel() -> None:
           }}
         </style>
 
-        <body style="background:#0d1117; padding:60px 48px; min-height:700px;">
+        <body style="background:#0d1117; padding:clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
 
-          <div style="text-align:center; margin-bottom:48px;">
+          <div style="text-align:center; margin-bottom:clamp(24px,4vw,48px);">
             <p class="eyebrow" style="color:#00c0f0;">The People</p>
             <h2>Meet the Team</h2>
             <p class="body" style="max-width:520px;margin:10px auto 0;">
@@ -838,14 +853,14 @@ def render_team_panel() -> None:
             </p>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:20px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:16px;">
             {cards_html}
           </div>
 
         </body>
         """,
         height=1100,
-        scrolling=False,
+        scrolling=True,
     )
 
 
@@ -855,20 +870,19 @@ def render_team_panel() -> None:
 def render_about_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
+        <style>
+          body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
+        </style>
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
-                     min-height:520px; display:flex; align-items:center; padding:60px 48px;">
-          <div style="display:flex; gap:60px; align-items:center; width:100%;">
-
-            <!-- Left: image placeholder -->
-            <div style="flex:1; min-width:0; height:340px;">
-              <div class="img-box" style="height:100%;">
+                     display:flex; align-items:center; min-height:100vh;">
+          <div class="row row-reverse">
+            <div style="min-height:200px;">
+              <div class="img-box" style="height:280px;">
                 <div class="icon">🔬</div>
                 <div class="label">Add assets/about.png</div>
               </div>
             </div>
-
-            <!-- Right: text -->
-            <div style="flex:1; min-width:0;">
+            <div>
               <p class="eyebrow" style="color:#7ee787;">The Project</p>
               <h2>Turning chemistry<br>into music</h2>
               <p class="body">
@@ -885,24 +899,24 @@ def render_about_panel() -> None:
                 to a polymer as its SMILES string.
               </p>
             </div>
-
           </div>
         </body>
         """,
         height=560,
-        scrolling=False,
+        scrolling=True,
     )
 
 
 def render_reverse_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
+        <style>
+          body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
+        </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
-                     min-height:520px; display:flex; align-items:center; padding:60px 48px;">
-          <div style="display:flex; gap:60px; align-items:center; width:100%;">
-
-            <!-- Left: text -->
-            <div style="flex:1; min-width:0;">
+                     display:flex; align-items:center; min-height:100vh;">
+          <div class="row">
+            <div>
               <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
               <h2>Turning music<br>into chemistry</h2>
               <p class="body">
@@ -918,20 +932,17 @@ def render_reverse_panel() -> None:
                 This feature is under development. Upload an audio file below to try it.
               </p>
             </div>
-
-            <!-- Right: image placeholder -->
-            <div style="flex:1; min-width:0; height:340px;">
-              <div class="img-box" style="height:100%;border-color:#d2a8ff44;">
+            <div style="min-height:200px;">
+              <div class="img-box" style="height:280px;border-color:#d2a8ff44;">
                 <div class="icon">🎵</div>
                 <div class="label">Add assets/reverse.png</div>
               </div>
             </div>
-
           </div>
         </body>
         """,
         height=560,
-        scrolling=False,
+        scrolling=True,
     )
 
 
