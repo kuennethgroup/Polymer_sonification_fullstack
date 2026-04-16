@@ -872,8 +872,14 @@ def render_team_panel() -> None:
           }}
           .team-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            grid-template-columns: repeat(5, 1fr);
             gap: 20px;
+          }}
+          @media (max-width: 900px) {{
+            .team-grid {{ grid-template-columns: repeat(3, 1fr); gap: 14px; }}
+          }}
+          @media (max-width: 560px) {{
+            .team-grid {{ grid-template-columns: repeat(2, 1fr); gap: 12px; }}
           }}
         </style>
 
@@ -889,9 +895,25 @@ def render_team_panel() -> None:
             {cards_html}
           </div>
         </body>
+        <script>
+          function autoResize() {{
+            var h = document.body.scrollHeight;
+            try {{
+              window.frameElement.style.height = h + 'px';
+              window.frameElement.height = h;
+            }} catch(e) {{}}
+          }}
+          // Run after layout + images settle
+          window.addEventListener('load', autoResize);
+          window.addEventListener('resize', autoResize);
+          document.addEventListener('DOMContentLoaded', autoResize);
+          // Extra pass after animations begin (cards animate in)
+          setTimeout(autoResize, 300);
+          setTimeout(autoResize, 800);
+        </script>
         """,
-        height=700,
-        scrolling=True,
+        height=1400,
+        scrolling=False,
     )
 
 
