@@ -754,7 +754,7 @@ def render_hero_panel() -> None:
           body {{ padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 48px); }}
         </style>
         <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
-                     display:flex; align-items:center; min-height:100vh;">
+                     display:flex; align-items:center; min-height:0;">
           <div class="row">
             <div>
               <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
@@ -776,7 +776,7 @@ def render_hero_panel() -> None:
         </body>
         """,
         height=680,
-        scrolling=True,
+        scrolling=False,
     )
 
 
@@ -841,6 +841,14 @@ def render_team_panel() -> None:
             from {{ opacity:0; transform:translateY(16px); }}
             to   {{ opacity:1; transform:translateY(0);    }}
           }}
+          .team-grid {{
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+          }}
+          @media (max-width: 600px) {{
+            .team-grid {{ grid-template-columns: repeat(2, 1fr); gap: 12px; }}
+          }}
         </style>
 
         <body style="background:#0d1117; padding:clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
@@ -853,14 +861,14 @@ def render_team_panel() -> None:
             </p>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:16px;">
+          <div class="team-grid">
             {cards_html}
           </div>
 
         </body>
         """,
         height=1100,
-        scrolling=True,
+        scrolling=False,
     )
 
 
@@ -874,7 +882,7 @@ def render_about_panel() -> None:
           body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
         </style>
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
-                     display:flex; align-items:center; min-height:100vh;">
+                     display:flex; align-items:center; min-height:0;">
           <div class="row row-reverse">
             <div style="min-height:200px;">
               <div class="img-box" style="height:280px;">
@@ -903,7 +911,7 @@ def render_about_panel() -> None:
         </body>
         """,
         height=560,
-        scrolling=True,
+        scrolling=False,
     )
 
 
@@ -914,7 +922,7 @@ def render_reverse_panel() -> None:
           body {{ padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px); }}
         </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
-                     display:flex; align-items:center; min-height:100vh;">
+                     display:flex; align-items:center; min-height:0;">
           <div class="row">
             <div>
               <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
@@ -942,7 +950,7 @@ def render_reverse_panel() -> None:
         </body>
         """,
         height=560,
-        scrolling=True,
+        scrolling=False,
     )
 
 
