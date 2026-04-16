@@ -841,13 +841,13 @@ def render_team_panel() -> None:
             b64 = ""
         cards_html += _member_card(m["name"], m["role"], b64, "jpeg", idx)
 
-    # Worst-case height = mobile layout (2 cols → more rows)
-    card_h     = 240 + 52
-    gap        = 20
-    header_h   = 160
-    padding    = 100
-    n_mobile   = math.ceil(len(members) / 2)   # 2-col mobile rows
-    panel_h    = header_h + n_mobile * card_h + (n_mobile - 1) * gap + padding
+    # Desktop height (5 cols) — JS expands for mobile if needed
+    card_h   = 240 + 52
+    gap      = 20
+    header_h = 160
+    padding  = 100
+    n_rows   = math.ceil(len(members) / 5)
+    panel_h  = header_h + n_rows * card_h + (n_rows - 1) * gap + padding
 
     st.components.v1.html(
         _PANEL_STYLE + f"""
@@ -878,16 +878,19 @@ def render_team_panel() -> None:
             {cards_html}
           </div>
           <script>
-            /* Directly resize the iframe to its content — works on both desktop and mobile */
-            function fitFrame() {{
+            function expandIfNeeded() {{
               try {{
                 const h = document.body.scrollHeight + 20;
-                if (window.frameElement) window.frameElement.style.height = h + 'px';
+                const frame = window.frameElement;
+                if (frame && h > frame.offsetHeight) {{
+                  frame.style.height = h + 'px';
+                }}
               }} catch(e) {{}}
             }}
-            fitFrame();
-            window.addEventListener('load', fitFrame);
-            new ResizeObserver(fitFrame).observe(document.body);
+            expandIfNeeded();
+            window.addEventListener('load', expandIfNeeded);
+            setTimeout(expandIfNeeded, 300);
+            new ResizeObserver(expandIfNeeded).observe(document.body);
           </script>
         </body>
         """,
