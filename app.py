@@ -895,28 +895,9 @@ def render_team_panel() -> None:
             {cards_html}
           </div>
         </body>
-        <style>
-          /* prevent body/html from inheriting iframe height so measurement is accurate */
-          html, body {{ height: auto !important; overflow: visible !important; }}
-        </style>
-        <script>
-          function autoResize() {{
-            var h = document.documentElement.offsetHeight;
-            try {{
-              window.frameElement.height = h;
-              window.frameElement.style.height = h + 'px';
-            }} catch(e) {{}}
-          }}
-          window.addEventListener('load', autoResize);
-          window.addEventListener('resize', autoResize);
-          // Cards animate in over ~1300ms (10 cards × 80ms delay + 500ms anim)
-          setTimeout(autoResize, 200);
-          setTimeout(autoResize, 900);
-          setTimeout(autoResize, 1500);
-        </script>
         """,
-        height=1400,
-        scrolling=False,
+        height=860,
+        scrolling=True,
     )
 
 
@@ -926,7 +907,6 @@ def render_team_panel() -> None:
 def render_about_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
-        <style> html, body { height: auto !important; overflow: visible !important; } </style>
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
                      padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
           <div class="row row-reverse">
@@ -955,25 +935,15 @@ def render_about_panel() -> None:
             </div>
           </div>
         </body>
-        <script>
-          function autoResize() {
-            var h = document.documentElement.offsetHeight;
-            try { window.frameElement.height = h; window.frameElement.style.height = h + 'px'; } catch(e) {}
-          }
-          window.addEventListener('load', autoResize);
-          window.addEventListener('resize', autoResize);
-          setTimeout(autoResize, 200);
-        </script>
         """,
-        height=900,
-        scrolling=False,
+        height=520,
+        scrolling=True,
     )
 
 
 def render_reverse_panel() -> None:
     st.components.v1.html(
         _PANEL_STYLE + """
-        <style> html, body { height: auto !important; overflow: visible !important; } </style>
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
                      padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
           <div class="row">
@@ -1001,18 +971,9 @@ def render_reverse_panel() -> None:
             </div>
           </div>
         </body>
-        <script>
-          function autoResize() {
-            var h = document.documentElement.offsetHeight;
-            try { window.frameElement.height = h; window.frameElement.style.height = h + 'px'; } catch(e) {}
-          }
-          window.addEventListener('load', autoResize);
-          window.addEventListener('resize', autoResize);
-          setTimeout(autoResize, 200);
-        </script>
         """,
-        height=900,
-        scrolling=False,
+        height=520,
+        scrolling=True,
     )
 
 
