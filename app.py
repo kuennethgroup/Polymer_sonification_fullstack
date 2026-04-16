@@ -743,11 +743,9 @@ _PANEL_STYLE = """
 # Section 1 — Hero: text left, image right
 # ──────────────────────────────────────────────────────────────────────────────
 def render_hero_panel() -> None:
-    import base64
     _hero_img_path = Path("images/group_kv.jpeg")
     if _hero_img_path.exists():
-        with open(_hero_img_path, "rb") as _f:
-            _hero_b64 = base64.b64encode(_f.read()).decode()
+        _hero_b64 = _compress_image(str(_hero_img_path), max_px=900, quality=70)
         _hero_html = f'<img src="data:image/jpeg;base64,{_hero_b64}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" />'
     else:
         _hero_html = '<div class="img-box"><div class="icon">🖼</div><div class="label">Add images/group_kv.jpeg</div></div>'
@@ -817,8 +815,18 @@ def _member_card(name: str, role: str, img_b64: str, ext: str, idx: int) -> str:
     """
 
 
-def render_team_panel() -> None:
+def _compress_image(img_path: str, max_px: int = 400, quality: int = 60) -> str:
+    """Return a base64 JPEG string resized to max_px and compressed to quality."""
     import base64
+    from PIL import Image
+    img = Image.open(img_path).convert("RGB")
+    img.thumbnail((max_px, max_px), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=quality, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def render_team_panel() -> None:
     import random
 
     members = TEAM_MEMBERS.copy()
@@ -828,12 +836,10 @@ def render_team_panel() -> None:
     for idx, m in enumerate(members):
         img_path = m.get("img", "")
         if img_path and Path(img_path).exists():
-            with open(img_path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            ext = Path(img_path).suffix.lstrip(".")
+            b64 = _compress_image(img_path)
         else:
-            b64, ext = "", "jpeg"
-        cards_html += _member_card(m["name"], m["role"], b64, ext, idx)
+            b64 = ""
+        cards_html += _member_card(m["name"], m["role"], b64, "jpeg", idx)
 
     n_cols   = 5
     n_rows   = math.ceil(len(members) / n_cols)
