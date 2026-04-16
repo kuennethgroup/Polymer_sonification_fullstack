@@ -151,9 +151,8 @@ st.markdown(
     html, body, .stApp { background: #0a0d14; color: #c9d1d9; }
     .block-container {
         padding-top: 0 !important;
-        max-width: 1100px !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        padding-left: max(16px, 3vw) !important;
+        padding-right: max(16px, 3vw) !important;
     }
 
     .divider { border-top: 1px solid #1f2733; margin: 1.2rem 0; }
@@ -727,12 +726,6 @@ _PANEL_STYLE = """
   .img-box .icon { font-size: 2.8rem; opacity: 0.5; }
   .img-box .label { font-size: 0.7rem; letter-spacing: 2px;
                     text-transform: uppercase; opacity: 0.6; }
-  /* ── Max-width page wrapper ── */
-  .page {
-    max-width: 1100px;
-    margin: 0 auto;
-    width: 100%;
-  }
   /* ── Responsive helpers ── */
   .row {
     display: flex; gap: 60px; align-items: center; width: 100%;
@@ -763,24 +756,22 @@ def render_hero_panel() -> None:
         _PANEL_STYLE + f"""
         <body style="background:linear-gradient(150deg,#0a0d14 0%,#0c1a2e 100%);
                      padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
-          <div class="page">
-            <div class="row">
-              <div>
-                <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
-                <h1>What if<br>polymers could<br><em>sing</em>?</h1>
-                <p class="body">
-                  Every polymer carries a unique sequence of atoms in its repeat unit —
-                  a molecular fingerprint that defines its properties.
-                  We turn that fingerprint into sound.
-                </p>
-                <p class="body">
-                  Scroll down to meet the team, learn the story,
-                  and then draw your own polymer to hear it.
-                </p>
-              </div>
-              <div style="overflow:hidden;border-radius:16px;max-height:400px;">
-                {_hero_html}
-              </div>
+          <div class="row">
+            <div>
+              <p class="eyebrow" style="color:#00c0f0;">Polymer Sonification</p>
+              <h1>What if<br>polymers could<br><em>sing</em>?</h1>
+              <p class="body">
+                Every polymer carries a unique sequence of atoms in its repeat unit —
+                a molecular fingerprint that defines its properties.
+                We turn that fingerprint into sound.
+              </p>
+              <p class="body">
+                Scroll down to meet the team, learn the story,
+                and then draw your own polymer to hear it.
+              </p>
+            </div>
+            <div style="overflow:hidden;border-radius:16px;max-height:400px;">
+              {_hero_html}
             </div>
           </div>
         </body>
@@ -862,18 +853,22 @@ def render_team_panel() -> None:
         </style>
 
         <body style="background:#0d1117; padding:clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
-          <div class="page">
-            <div style="text-align:center; margin-bottom:clamp(24px,4vw,48px);">
-              <p class="eyebrow" style="color:#00c0f0;">The People</p>
-              <h2>Meet the Team</h2>
-              <p class="body" style="max-width:520px;margin:10px auto 0;">
-                The researchers and engineers behind Polymer Sonification.
-              </p>
-            </div>
-            <div class="team-grid">
-              {cards_html}
-            </div>
+          <div style="text-align:center; margin-bottom:clamp(24px,4vw,48px);">
+            <p class="eyebrow" style="color:#00c0f0;">The People</p>
+            <h2>Meet the Team</h2>
+            <p class="body" style="max-width:520px;margin:10px auto 0;">
+              The researchers and engineers behind Polymer Sonification.
+            </p>
           </div>
+          <div class="team-grid">
+            {cards_html}
+          </div>
+          <script>
+            window.addEventListener('load', function() {{
+              const h = document.body.scrollHeight;
+              window.parent.postMessage({{type:'streamlit:setFrameHeight', height: h}}, '*');
+            }});
+          </script>
         </body>
         """,
         height=1100,
@@ -889,31 +884,29 @@ def render_about_panel() -> None:
         _PANEL_STYLE + """
         <body style="background:linear-gradient(160deg,#0a1628 0%,#0d1117 100%);
                      padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
-          <div class="page">
-            <div class="row row-reverse">
-              <div>
-                <div class="img-box" style="height:280px;">
-                  <div class="icon">🔬</div>
-                  <div class="label">Add assets/about.png</div>
-                </div>
+          <div class="row row-reverse">
+            <div>
+              <div class="img-box" style="height:280px;">
+                <div class="icon">🔬</div>
+                <div class="label">Add assets/about.png</div>
               </div>
-              <div>
-                <p class="eyebrow" style="color:#7ee787;">The Project</p>
-                <h2>Turning chemistry<br>into music</h2>
-                <p class="body">
-                  We started this project with a curiosity: if every polymer has a unique
-                  molecular structure, could that structure produce a unique sound?
-                </p>
-                <p class="body">
-                  Using a pre-trained machine-learning model on polymer data, we map each
-                  repeat unit's atoms to musical notes across two octaves — heavier atoms
-                  play lower notes, lighter atoms play higher ones.
-                </p>
-                <p class="body">
-                  The result is a sonic fingerprint: an audio identity that is as unique
-                  to a polymer as its SMILES string.
-                </p>
-              </div>
+            </div>
+            <div>
+              <p class="eyebrow" style="color:#7ee787;">The Project</p>
+              <h2>Turning chemistry<br>into music</h2>
+              <p class="body">
+                We started this project with a curiosity: if every polymer has a unique
+                molecular structure, could that structure produce a unique sound?
+              </p>
+              <p class="body">
+                Using a pre-trained machine-learning model on polymer data, we map each
+                repeat unit's atoms to musical notes across two octaves — heavier atoms
+                play lower notes, lighter atoms play higher ones.
+              </p>
+              <p class="body">
+                The result is a sonic fingerprint: an audio identity that is as unique
+                to a polymer as its SMILES string.
+              </p>
             </div>
           </div>
         </body>
@@ -928,29 +921,27 @@ def render_reverse_panel() -> None:
         _PANEL_STYLE + """
         <body style="background:linear-gradient(160deg,#0d1117 0%,#0a1628 100%);
                      padding: clamp(24px,5vw,60px) clamp(16px,4vw,48px);">
-          <div class="page">
-            <div class="row">
-              <div>
-                <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
-                <h2>Turning music<br>into chemistry</h2>
-                <p class="body">
-                  The inverse challenge: can a melody describe a polymer?
-                  Given an audio fingerprint, we aim to reconstruct the molecular
-                  structure that would have produced it.
-                </p>
-                <p class="body">
-                  By reversing the sonification pipeline we open a new design space —
-                  composing a sound and letting the model propose a polymer that matches it.
-                </p>
-                <p class="body">
-                  This feature is under development. Upload an audio file below to try it.
-                </p>
-              </div>
-              <div>
-                <div class="img-box" style="height:280px;border-color:#d2a8ff44;">
-                  <div class="icon">🎵</div>
-                  <div class="label">Add assets/reverse.png</div>
-                </div>
+          <div class="row">
+            <div>
+              <p class="eyebrow" style="color:#d2a8ff;">Coming Soon</p>
+              <h2>Turning music<br>into chemistry</h2>
+              <p class="body">
+                The inverse challenge: can a melody describe a polymer?
+                Given an audio fingerprint, we aim to reconstruct the molecular
+                structure that would have produced it.
+              </p>
+              <p class="body">
+                By reversing the sonification pipeline we open a new design space —
+                composing a sound and letting the model propose a polymer that matches it.
+              </p>
+              <p class="body">
+                This feature is under development. Upload an audio file below to try it.
+              </p>
+            </div>
+            <div>
+              <div class="img-box" style="height:280px;border-color:#d2a8ff44;">
+                <div class="icon">🎵</div>
+                <div class="label">Add assets/reverse.png</div>
               </div>
             </div>
           </div>
